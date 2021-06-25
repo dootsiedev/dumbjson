@@ -60,7 +60,7 @@ inline TIMER_U timer_now()
 // resolution is based on how much to divide 1 seconds
 // 1 = print in seconds, 1000 = print in milliseconds
 template<intmax_t resolution>
-TIMER_RESULT timer_delta(const TIMER_U start, const TIMER_U end)
+TIMER_RESULT timer_delta(TIMER_U start, TIMER_U end)
 {
 	return std::chrono::duration_cast<
 			   std::chrono::duration<TIMER_RESULT, std::ratio<1, resolution>>>(end - start)

@@ -4,7 +4,7 @@
 
 #include <limits>
 
-int test_object_1(char* file_memory, size_t& file_size)
+static int test_object_1(char* file_memory, size_t& file_size)
 {
 	const char* key_object = "test_object";
 
@@ -135,7 +135,7 @@ int test_object_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 
-int test_array_1(char* file_memory, size_t& file_size)
+static int test_array_1(char* file_memory, size_t& file_size)
 {
 	const char* key_double = "some_double";
 	const double expected_double[] = {0.111,
@@ -391,7 +391,7 @@ struct data_type
 	}
 };
 
-int test_array_of_objects_1(char* file_memory, size_t& file_size)
+static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 {
 	const char* key_array = "test_array";
 
@@ -477,7 +477,7 @@ int test_array_of_objects_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 
-int test_read_1(char* file_memory, size_t& file_size)
+static int test_read_1(char* file_memory, size_t& file_size)
 {
 	// I am not doing anything meaningful here,
 	// I used this to give garbage and to make sure the error is good.
@@ -522,7 +522,7 @@ int test_read_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 
-int test_error_1(char* file_memory, size_t& file_size)
+static int test_error_1(char* file_memory, size_t& file_size)
 {
 	// just test to see if the correct error is made.
 
@@ -921,7 +921,7 @@ int test_error_1(char* file_memory, size_t& file_size)
 
 int main()
 {
-	slogf("hello wor;ld\n");
+	slogf("hello world\n");
 
 	TIMER_U t1;
 	TIMER_U t2;
@@ -969,6 +969,6 @@ int main()
 
 	slogf("[[[\n%s\n]]]\n", file_memory);
 
-	slogf("donne\n");
+	slogf("done\n");
 	return 0;
 }

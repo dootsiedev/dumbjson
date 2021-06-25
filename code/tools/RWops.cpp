@@ -1,6 +1,7 @@
 #include "../global.h"
 #include "RWops.h"
 
+// You could use "SDL.h", not sure if it's better
 #include <SDL2/SDL.h>
 
 #include <errno.h> //errno
@@ -16,8 +17,8 @@ static_assert(SEEK_END == RW_SEEK_END);
 // by all means, my system is not BETTER, just more integrated (ex: I can print a stacktrace on
 // serr) and when you open SDL_RWFromFile, it will insert the path of the file in the error. and I
 // am uncertain if SDL errors are thread safe...
-// maybe I could create a SDL_RWFromMem replacement because SDL will not print errors for it (eg: read too
-// much, write too much), but I don't really use memory files...
+// maybe I could create a SDL_RWFromMem replacement because SDL will not print errors for it (eg:
+// read too much, write too much), but I don't really use memory files...
 
 class RWops_Stdio_NoClose : public RWops
 {
@@ -119,8 +120,8 @@ class RWops_SDL_NoClose : public RWops
 		{
 			// errno is not set by fread, if I really wanted to I could use open() and read(), but
 			// that is too painful.
-			serrf("Error reading from datastream: `%s`, reason: %s  (size = %zu, return: %zu)\n", stream_info,
-				  error, nmemb, bytes_read);
+			serrf("Error reading from datastream: `%s`, reason: %s  (size = %zu, return: %zu)\n",
+				  stream_info, error, nmemb, bytes_read);
 			error_flag = true;
 		}
 		return bytes_read;
@@ -133,8 +134,8 @@ class RWops_SDL_NoClose : public RWops
 		const char* error = SDL_GetError(); // SDL_GetErrorMsg(buffer, sizeof(buffer));
 		if(bytes_written != nmemb)
 		{
-			serrf("Error writing to datastream: `%s`, reason: %s (size = %zu, return: %zu)\n", stream_info,
-				  error, nmemb, bytes_written);
+			serrf("Error writing to datastream: `%s`, reason: %s (size = %zu, return: %zu)\n",
+				  stream_info, error, nmemb, bytes_written);
 			error_flag = true;
 		}
 		return bytes_written;

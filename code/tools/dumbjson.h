@@ -214,8 +214,8 @@ class JsonState : nocopy
 	}
 
 	// copy the whole array, must have the exact same size, must use random index iterators.
-	//WARNING: if a conversion error occurred, the output will still be modified!
-	//in the case you use defaults, you can use another array for reading, and set after success.
+	// WARNING: if a conversion error occurred, the output will still be modified!
+	// in the case you use defaults, you can use another array for reading, and set after success.
 	template<class Iter, bool Const, class ValueT>
 	bool GetArrayRange(const rj::GenericArray<Const, ValueT>& array, Iter start, Iter end)
 	{
@@ -244,9 +244,11 @@ class JsonState : nocopy
 	}
 
 	// purely for user errors, ex: too many or too few elements in an array.
-	void PrintError(const char* message, ...) __attribute__((format(printf, 1, 2)));
-	void PrintMemberError(const char* key, const char* message, ...) __attribute__((format(printf, 2, 3)));
-	void PrintIndexError(size_t index, const char* message, ...) __attribute__((format(printf, 2, 3)));
+	void PrintError(const char* message, ...) __attribute__((format(printf, 2, 3)));
+	void PrintMemberError(const char* key, const char* message, ...)
+		__attribute__((format(printf, 3, 4)));
+	void PrintIndexError(size_t index, const char* message, ...)
+		__attribute__((format(printf, 3, 4)));
 
 	// prints the path of the current Json(Member/Index)(Writer/Reader) stack.
 	std::string dump_path();

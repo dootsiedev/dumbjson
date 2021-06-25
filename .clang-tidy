@@ -24,8 +24,9 @@ Checks: >
   -modernize-use-using,
   -readability-convert-member-functions-to-static,
   -misc-static-assert,
+  -google-objc-*,
 #you must make sure the last THING to ends with a comma!!!
-
+  
 
 #  -modernize-use-equals-delete,
 #  -google-readability-casting,

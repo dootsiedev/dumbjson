@@ -4,7 +4,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
     message(FATAL_ERROR "Prevented in-tree built. Please create a build directory outside of the source code and call cmake from there")
 endif()
 
-project (dumbjson)
+project (dumbjson CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -294,14 +294,15 @@ endif()
 #
 # SDL2
 #
+option(USE_OLD_SDL2 "for SDL2 older than 2.0.6" OFF)
 
 find_package(SDL2 CONFIG REQUIRED)
 
-option(USE_OLD_SDL2 "for SDL2 older than 2.0.6" OFF)
 if(USE_OLD_SDL2)
     #the old way of linking.
     #note that there is no static linking because
 	#this is PURELY for package managers, which usually HATE static libraries.
+    target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARIES})
 else()
     if(NOT STATIC_BUILD)
@@ -354,7 +355,7 @@ if(PORTABLE OR WIN32)
 			UNRESOLVED_DEPENDENCIES_VAR _u_deps
 			DIRECTORIES ${MY_DEPENDENCY_PATHS} $ENV{PATH}
 			PRE_EXCLUDE_REGEXES "api-ms-*" "ext-ms-*"
-			POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" ".*/lib/.*\\.so"
+			POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" ".*lib/.*\\.so"
 		)
 		foreach(_file ${_r_deps})
 			if(WIN32)
