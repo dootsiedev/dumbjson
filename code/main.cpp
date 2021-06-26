@@ -688,6 +688,19 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 			{
 				// now start checking the errors.
+				json_state.PrintError("PrintError!");
+				CHECK(!serr_get_error().empty());
+				json_state.PrintError("PrintError, with %s!", "vargs");
+				CHECK(!serr_get_error().empty());
+				json_state.PrintMemberError("nonexistant", "PrintMemberError Error!");
+				CHECK(!serr_get_error().empty());
+				json_state.PrintMemberError("nonexistant", "PrintMemberError Error with %s!", "vargs");
+				CHECK(!serr_get_error().empty());
+				json_state.PrintIndexError(123, "PrintIndexError Error!");
+				CHECK(!serr_get_error().empty());
+				json_state.PrintIndexError(123, "PrintIndexError Error with %s!", "vargs");
+				CHECK(!serr_get_error().empty());
+
 				const auto& rjroot = json_state.rjdoc.GetObject();
 
 				// things that don't exist
@@ -942,13 +955,6 @@ int main()
 
 	char file_memory[9999];
 	size_t file_size = sizeof(file_memory);
-
-	int i;
-	switch(i)
-	{
-	case 0: break;
-	case 1: break;
-	}
 
 	struct job_type
 	{
