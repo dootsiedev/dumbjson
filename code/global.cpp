@@ -30,11 +30,16 @@ std::string WIN_GetFormattedGLE()
 	// It is possible to set the current codepage to utf8, and get utf8 messages from this
 	// but then I would need to use unique_ptr<> with a custom deleter for LocalFree
 	// to get the data without any redundant copying.
-	int buflen = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-									FORMAT_MESSAGE_IGNORE_INSERTS |
-									FORMAT_MESSAGE_MAX_WIDTH_MASK, // this removes the extra newline
-								NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-								reinterpret_cast<LPWSTR>(&lpMsgBuf), 0, NULL);
+	int buflen = FormatMessageW(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+			FORMAT_MESSAGE_IGNORE_INSERTS |
+			FORMAT_MESSAGE_MAX_WIDTH_MASK, // this removes the extra newline
+		NULL,
+		dw,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		reinterpret_cast<LPWSTR>(&lpMsgBuf),
+		0,
+		NULL);
 
 	std::string str(WIN_WideToUTF8(lpMsgBuf, buflen));
 
@@ -49,12 +54,16 @@ bool implement_CHECK(bool cond, const char* expr, const char* file, int line)
 	if(!cond)
 	{
 		std::string stack_message;
-		serrf("\nCheck failed\n"
-			  "File: %s, Line %d\n"
-			  "Expression: `%s`\n"
-			  "\nStacktrace:\n"
-			  "%s\n",
-			  file, line, expr, stack_message.c_str());
+		serrf(
+			"\nCheck failed\n"
+			"File: %s, Line %d\n"
+			"Expression: `%s`\n"
+			"\nStacktrace:\n"
+			"%s\n",
+			file,
+			line,
+			expr,
+			stack_message.c_str());
 
 		return false;
 	}
@@ -66,10 +75,7 @@ bool implement_CHECK(bool cond, const char* expr, const char* file, int line)
 std::shared_ptr<std::string> internal_get_serr_buffer()
 {
 	static thread_local std::shared_ptr<std::string> buffer;
-	if(!buffer)
-	{
-		buffer = std::make_shared<std::string>();
-	}
+	if(!buffer) { buffer = std::make_shared<std::string>(); }
 	return buffer;
 }
 

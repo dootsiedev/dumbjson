@@ -14,32 +14,27 @@ const char* rj_string(const rj::Value& value)
 {
 	switch(value.GetType())
 	{
-		case rj::kTrueType:
-		case rj::kFalseType:
-			return "Bool";
-		case rj::kNullType:
-		case rj::kStringType:
-		case rj::kObjectType:
-		case rj::kArrayType:
-			return g_kTypeNames[value.GetType()];
+	case rj::kTrueType:
+	case rj::kFalseType: return "Bool";
+	case rj::kNullType:
+	case rj::kStringType:
+	case rj::kObjectType:
+	case rj::kArrayType: return g_kTypeNames[value.GetType()];
 
-		case rj::kNumberType:
-			if(value.IsDouble())
-			{
-				return "Double";
-			}
-			else if(value.IsInt())
-			{
-				return "Int";
-			}
-			else if(value.IsUint())
-			{
-				return "Uint";
-			}
-			else
-			{
-				return "64bit number probably";
-			}
+	case rj::kNumberType:
+		if(value.IsDouble()) { return "Double"; }
+		else if(value.IsInt())
+		{
+			return "Int";
+		}
+		else if(value.IsUint())
+		{
+			return "Uint";
+		}
+		else
+		{
+			return "64bit number probably";
+		}
 	}
 	return "Unknown";
 }
@@ -71,8 +66,14 @@ class RWops_JsonReadStream
 		\param bufferSize size of buffer in bytes. Must >=4 bytes.
 	*/
 	RWops_JsonReadStream(RWops* fp, char* buffer, size_t bufferSize)
-		: fp_(fp), buffer_(buffer), bufferSize_(bufferSize), bufferLast_(0), current_(buffer_),
-		  readCount_(0), count_(0), eof_(false)
+	: fp_(fp)
+	, buffer_(buffer)
+	, bufferSize_(bufferSize)
+	, bufferLast_(0)
+	, current_(buffer_)
+	, readCount_(0)
+	, count_(0)
+	, eof_(false)
 	{
 		ASSERT(fp_ != 0);
 		ASSERT(bufferSize >= 4);
@@ -159,7 +160,10 @@ class RWops_JsonWriteStream
 	typedef char Ch; //!< Character type. Only support char.
 
 	RWops_JsonWriteStream(RWops* fp, char* buffer, size_t bufferSize)
-		: fp_(fp), buffer_(buffer), bufferEnd_(buffer + bufferSize), current_(buffer_)
+	: fp_(fp)
+	, buffer_(buffer)
+	, bufferEnd_(buffer + bufferSize)
+	, current_(buffer_)
 	{
 		ASSERT(fp_ != 0);
 	}
@@ -264,10 +268,13 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 	if(rjdoc.ParseStream<rj::kParseCommentsFlag, rj::UTF8<>>(isw).HasParseError())
 	{
 		size_t offset = rjdoc.GetErrorOffset();
-		serrf("Failed to parse json: `%s`\n"
-			  "Message: %s\n"
-			  "Offset: %zu\n",
-			  file_info, GetParseError_En(rjdoc.GetParseError()), offset);
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Message: %s\n"
+			"Offset: %zu\n",
+			file_info,
+			GetParseError_En(rjdoc.GetParseError()),
+			offset);
 
 		if(!file->good())
 		{
@@ -303,9 +310,11 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 				++pos; // go over the newline for the next std::find
 				if(offset <= file_position)
 				{
-					serrf("Line: %zu\n"
-						  "Col: %zu\n",
-						  line_n, (offset - prev_newline));
+					serrf(
+						"Line: %zu\n"
+						"Col: %zu\n",
+						line_n,
+						(offset - prev_newline));
 					size_t line_length = file_position - prev_newline;
 
 					// sizeof(buffer)-1 to have space for a null terminator.
@@ -313,8 +322,9 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 
 					if(offset > prev_newline + line_length)
 					{
-						serrf("Error offset too long (delta: %zu)\n",
-							  (offset - (prev_newline + line_length)));
+						serrf(
+							"Error offset too long (delta: %zu)\n",
+							(offset - (prev_newline + line_length)));
 						return false;
 					}
 
@@ -342,7 +352,7 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 				}
 				++line_n;
 				prev_newline = file_position + 1; //+1 to skip newline, so when the error starts at
-												  // line 1, prev_newline will be 0.
+					// line 1, prev_newline will be 0.
 			} while(pos != last);
 			++buffers_passed;
 		}
@@ -352,15 +362,19 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 
 	if(rjdoc.GetType() != expected)
 	{
-		serrf("JsonState::%s Error in `%s`: Failed to convert Root [%s], expected [%s] \n",
-			  __func__, file_info, rj_string(rjdoc), g_kTypeNames[expected]);
+		serrf(
+			"JsonState::%s Error in `%s`: Failed to convert Root [%s], expected [%s] \n",
+			__func__,
+			file_info,
+			rj_string(rjdoc),
+			g_kTypeNames[expected]);
 		return false;
 	}
 	return true;
 }
 
-bool JsonState::open_string(const char* buffer, size_t buffer_size, const char* info,
-							rj::Type expected)
+bool JsonState::open_string(
+	const char* buffer, size_t buffer_size, const char* info, rj::Type expected)
 {
 	ASSERT(buffer != NULL);
 	ASSERT(buffer_size != 0);
@@ -372,10 +386,13 @@ bool JsonState::open_string(const char* buffer, size_t buffer_size, const char* 
 	if(rjdoc.Parse<rj::kParseCommentsFlag, rj::UTF8<>>(buffer, buffer_size).HasParseError())
 	{
 		size_t offset = rjdoc.GetErrorOffset();
-		serrf("Failed to parse json: `%s`\n"
-			  "Message: %s\n"
-			  "Offset: %zu\n",
-			  file_info, GetParseError_En(rjdoc.GetParseError()), offset);
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Message: %s\n"
+			"Offset: %zu\n",
+			file_info,
+			GetParseError_En(rjdoc.GetParseError()),
+			offset);
 
 		// find the offending line:
 		size_t line_n = 1; // should be 1 indexed
@@ -390,9 +407,11 @@ bool JsonState::open_string(const char* buffer, size_t buffer_size, const char* 
 			++pos; // go over the newline for the next std::find
 			if(offset <= file_position)
 			{
-				serrf("Line: %zu\n"
-					  "Col: %zu\n",
-					  line_n, (offset - prev_newline));
+				serrf(
+					"Line: %zu\n"
+					"Col: %zu\n",
+					line_n,
+					(offset - prev_newline));
 
 				// file_position should point to the location of '\n', which means it will be
 				// trimmed off.
@@ -407,8 +426,9 @@ bool JsonState::open_string(const char* buffer, size_t buffer_size, const char* 
 
 				if(offset > prev_newline + line_length)
 				{
-					serrf("Error offset too long (delta: %zu)\n",
-						  (offset - (prev_newline + line_length)));
+					serrf(
+						"Error offset too long (delta: %zu)\n",
+						(offset - (prev_newline + line_length)));
 					return false;
 				}
 
@@ -438,8 +458,12 @@ bool JsonState::open_string(const char* buffer, size_t buffer_size, const char* 
 
 	if(rjdoc.GetType() != expected)
 	{
-		serrf("JsonState::%s Error in `%s`: Failed to convert Root [%s], expected [%s] \n",
-			  __func__, file_info, rj_string(rjdoc), g_kTypeNames[expected]);
+		serrf(
+			"JsonState::%s Error in `%s`: Failed to convert Root [%s], expected [%s] \n",
+			__func__,
+			file_info,
+			rj_string(rjdoc),
+			g_kTypeNames[expected]);
 		return false;
 	}
 	return true;
@@ -579,10 +603,7 @@ std::string JsonState::dump_path()
 		if(it->name != NULL)
 		{
 			// if at the start, ignore the root.
-			if(it != json_unwind_table.begin())
-			{
-				path += '.';
-			}
+			if(it != json_unwind_table.begin()) { path += '.'; }
 			path.append(it->name);
 		}
 		else
@@ -606,52 +627,80 @@ void JsonState::internal_print_missing_member_error(const char* function, const 
 	}
 	else
 	{
-		serrf("JsonState::%s Error in `%s`: No such node \"%s.%s\"\n", function, file_info,
-			  dump_path().c_str(), key);
+		serrf(
+			"JsonState::%s Error in `%s`: No such node \"%s.%s\"\n",
+			function,
+			file_info,
+			dump_path().c_str(),
+			key);
 	}
 }
 void JsonState::internal_print_missing_index_error(const char* function, size_t index, size_t size)
 {
-	serrf("JsonState::%s Error in `%s`: index out of bounds \"%s[%zu]\" size=%zu\n", function,
-		  file_info, dump_path().c_str(), index, size);
+	serrf(
+		"JsonState::%s Error in `%s`: index out of bounds \"%s[%zu]\" size=%zu\n",
+		function,
+		file_info,
+		dump_path().c_str(),
+		index,
+		size);
 }
 
-void JsonState::internal_print_member_convert_error(const char* function,
-													const rj::Value::ConstMemberIterator& mitr,
-													const char* expected)
+void JsonState::internal_print_member_convert_error(
+	const char* function, const rj::Value::ConstMemberIterator& mitr, const char* expected)
 {
 	if(json_unwind_table.empty())
 	{
 		// root will include a period before the key...
 		serrf(
 			"JsonState::%s Error in `%s`: Failed to convert key: \"%s\", value: %c%s%c, expected: [%s]\n",
-			function, file_info, mitr->name.GetString(), (mitr->value.IsString() ? '\"' : '['),
+			function,
+			file_info,
+			mitr->name.GetString(),
+			(mitr->value.IsString() ? '\"' : '['),
 			(mitr->value.IsString() ? mitr->value.GetString() : rj_string(mitr->value)),
-			(mitr->value.IsString() ? '\"' : ']'), expected);
+			(mitr->value.IsString() ? '\"' : ']'),
+			expected);
 	}
 	else
 	{
 		serrf(
 			"JsonState::%s Error in `%s`: Failed to convert key: \"%s.%s\", value: %c%s%c, expected: [%s]\n",
-			function, file_info, dump_path().c_str(), mitr->name.GetString(),
+			function,
+			file_info,
+			dump_path().c_str(),
+			mitr->name.GetString(),
 			(mitr->value.IsString() ? '\"' : '['),
 			(mitr->value.IsString() ? mitr->value.GetString() : rj_string(mitr->value)),
-			(mitr->value.IsString() ? '\"' : ']'), expected);
+			(mitr->value.IsString() ? '\"' : ']'),
+			expected);
 	}
 }
-void JsonState::internal_print_index_convert_error(const char* function, size_t index,
-												   const rj::Value::ConstValueIterator& value,
-												   const char* expected)
+void JsonState::internal_print_index_convert_error(
+	const char* function,
+	size_t index,
+	const rj::Value::ConstValueIterator& value,
+	const char* expected)
 {
 	serrf(
 		"JsonState::%s Error in `%s`: Failed to convert index: \"%s[%zu]\", value: %c%s%c, expected: [%s]\n",
-		function, file_info, dump_path().c_str(), index, (value->IsString() ? '\"' : '['),
+		function,
+		file_info,
+		dump_path().c_str(),
+		index,
+		(value->IsString() ? '\"' : '['),
 		(value->IsString() ? value->GetString() : rj_string(*value)),
-		(value->IsString() ? '\"' : ']'), expected);
+		(value->IsString() ? '\"' : ']'),
+		expected);
 }
-void JsonState::internal_print_array_size_error(const char* function, size_t array_size,
-												size_t expected_size)
+void JsonState::internal_print_array_size_error(
+	const char* function, size_t array_size, size_t expected_size)
 {
-	serrf("JsonState::%s Error at `%s` in `%s`: incorrect array size: %zu, expected: %zu\n",
-		  function, file_info, dump_path().c_str(), array_size, expected_size);
+	serrf(
+		"JsonState::%s Error at `%s` in `%s`: incorrect array size: %zu, expected: %zu\n",
+		function,
+		file_info,
+		dump_path().c_str(),
+		array_size,
+		expected_size);
 }

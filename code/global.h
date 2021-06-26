@@ -47,8 +47,6 @@ struct nocopy
 };
 
 typedef double TIMER_RESULT;
-#define TIMER_MS 1000
-#define TIMER_SEC 1
 
 typedef std::chrono::steady_clock::time_point TIMER_U;
 
@@ -67,8 +65,8 @@ TIMER_RESULT timer_delta(TIMER_U start, TIMER_U end)
 		.count();
 }
 
-//I need this because it is more robust to not use a template<> for the resolution,
-//but I have no idea how to remove the template for chrono.
+// I need this because it is more robust to not use a template<> for the resolution,
+// but I have no idea how to remove the template for chrono.
 #define timer_delta_ms(start, end) timer_delta<1000>(start, end)
 
 // I want to use this, but I randomly got a negative number causing UBsan to trigger
@@ -127,5 +125,6 @@ void slogf(const char* msg, ...) __attribute__((format(printf, 1, 2)));
 
 void serrf(const char* msg, ...) __attribute__((format(printf, 1, 2)));
 
-//I hate this, but it works.
+// a possible improvement would be to use a std::vector as a parameter,
+// to allow a potential reuse of memory.
 std::unique_ptr<char[]> unique_vasprintf(int& length, const char* msg, va_list args);

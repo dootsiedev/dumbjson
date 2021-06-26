@@ -355,7 +355,7 @@ if(PORTABLE OR WIN32)
 			UNRESOLVED_DEPENDENCIES_VAR _u_deps
 			DIRECTORIES ${MY_DEPENDENCY_PATHS} $ENV{PATH}
 			PRE_EXCLUDE_REGEXES "api-ms-*" "ext-ms-*"
-			POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" ".*lib/.*\\.so"
+			POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" "/lib/.*\\.so"
 		)
 		foreach(_file ${_r_deps})
 			if(WIN32)

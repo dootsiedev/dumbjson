@@ -36,15 +36,15 @@ static int test_object_1(char* file_memory, size_t& file_size)
 					json_state.AddMember(rjobject, rj::StringRef(key_double), expected_double);
 					json_state.AddMember(rjobject, rj::StringRef(key_int), expected_int);
 					json_state.AddMember(rjobject, rj::StringRef(key_bool), expected_bool);
-					json_state.AddMember(rjobject, rj::StringRef(key_string),
-										 rj::StringRef(expected_string));
-					json_state.AddMember(rjobject, rj::StringRef(key_cstring),
-										 rj::StringRef(expected_cstring));
+					json_state.AddMember(
+						rjobject, rj::StringRef(key_string), rj::StringRef(expected_string));
+					json_state.AddMember(
+						rjobject, rj::StringRef(key_cstring), rj::StringRef(expected_cstring));
 				}
 
 				// move to the root (test_object is Null after this)
-				json_state.AddMember(json_state.rjdoc.GetObject(), rj::StringRef(key_object),
-									 test_object);
+				json_state.AddMember(
+					json_state.rjdoc.GetObject(), rj::StringRef(key_object), test_object);
 			}
 		}
 
@@ -73,8 +73,8 @@ static int test_object_1(char* file_memory, size_t& file_size)
 			// root has a nested object.
 			{
 				// get an object, check if it exists and if it's the correct type.
-				auto mitr = json_state.CheckMember(json_state.rjdoc.GetObject(), key_object,
-												   rj::kObjectType);
+				auto mitr = json_state.CheckMember(
+					json_state.rjdoc.GetObject(), key_object, rj::kObjectType);
 				if(mitr == json_state.rjdoc.MemberEnd()) return -1;
 
 				// put it in the wrapper for good errors,
@@ -138,12 +138,13 @@ static int test_object_1(char* file_memory, size_t& file_size)
 static int test_array_1(char* file_memory, size_t& file_size)
 {
 	const char* key_double = "some_double";
-	const double expected_double[] = {0.111,
-									  222,
-									  0,
-									  444.444,
-									  std::numeric_limits<double>::max(),
-									  std::numeric_limits<double>::min()};
+	const double expected_double[] = {
+		0.111,
+		222,
+		0,
+		444.444,
+		std::numeric_limits<double>::max(),
+		std::numeric_limits<double>::min()};
 
 	const char* key_int = "some_int";
 	const int expected_int[] = {
@@ -165,20 +166,22 @@ static int test_array_1(char* file_memory, size_t& file_size)
 			const auto& rjroot = json_state.rjdoc.GetObject();
 			{
 				auto test_array = rj::Value(rj::kArrayType);
-				json_state.SetArrayRange(test_array.GetArray(), expected_double,
-										 expected_double + std::size(expected_double));
+				json_state.SetArrayRange(
+					test_array.GetArray(),
+					expected_double,
+					expected_double + std::size(expected_double));
 				json_state.AddMember(rjroot, rj::StringRef(key_double), test_array);
 			}
 			{
 				auto test_array = rj::Value(rj::kArrayType);
-				json_state.SetArrayRange(test_array.GetArray(), expected_int,
-										 expected_int + std::size(expected_int));
+				json_state.SetArrayRange(
+					test_array.GetArray(), expected_int, expected_int + std::size(expected_int));
 				json_state.AddMember(rjroot, rj::StringRef(key_int), test_array);
 			}
 			{
 				auto test_array = rj::Value(rj::kArrayType);
-				json_state.SetArrayRange(test_array.GetArray(), expected_bool,
-										 expected_bool + std::size(expected_bool));
+				json_state.SetArrayRange(
+					test_array.GetArray(), expected_bool, expected_bool + std::size(expected_bool));
 				json_state.AddMember(rjroot, rj::StringRef(key_bool), test_array);
 			}
 			{
@@ -234,8 +237,8 @@ static int test_array_1(char* file_memory, size_t& file_size)
 
 				double result[std::size(expected_double)];
 
-				if(!json_state.GetArrayRange(test_array.rjvalue.GetArray(), result,
-											 result + std::size(result)))
+				if(!json_state.GetArrayRange(
+					   test_array.rjvalue.GetArray(), result, result + std::size(result)))
 					return -1;
 
 				for(size_t i = 0; i < std::size(result); ++i)
@@ -254,8 +257,8 @@ static int test_array_1(char* file_memory, size_t& file_size)
 
 				int result[std::size(expected_int)];
 
-				if(!json_state.GetArrayRange(test_array.rjvalue.GetArray(), result,
-											 result + std::size(result)))
+				if(!json_state.GetArrayRange(
+					   test_array.rjvalue.GetArray(), result, result + std::size(result)))
 					return -1;
 
 				for(size_t i = 0; i < std::size(result); ++i)
@@ -274,8 +277,8 @@ static int test_array_1(char* file_memory, size_t& file_size)
 
 				bool result[std::size(expected_bool)];
 
-				if(!json_state.GetArrayRange(test_array.rjvalue.GetArray(), result,
-											 result + std::size(result)))
+				if(!json_state.GetArrayRange(
+					   test_array.rjvalue.GetArray(), result, result + std::size(result)))
 					return -1;
 
 				for(size_t i = 0; i < std::size(result); ++i)
@@ -321,8 +324,8 @@ static int test_array_1(char* file_memory, size_t& file_size)
 
 				const char* result[std::size(expected_cstring)];
 
-				if(!json_state.GetArrayRange(test_array.rjvalue.GetArray(), result,
-											 result + std::size(result)))
+				if(!json_state.GetArrayRange(
+					   test_array.rjvalue.GetArray(), result, result + std::size(result)))
 					return -1;
 
 				for(size_t i = 0; i < std::size(result); ++i)
@@ -348,7 +351,12 @@ struct data_type
 	double d;
 	std::string s;
 
-	data_type(int i_, double d_, std::string&& s_) : i(i_), d(d_), s(std::move(s_)) {}
+	data_type(int i_, double d_, std::string&& s_)
+	: i(i_)
+	, d(d_)
+	, s(std::move(s_))
+	{
+	}
 
 	rj::Value write(JsonState& json_state) const
 	{
@@ -369,10 +377,7 @@ struct data_type
 		{
 			// strings... (much more simple to just convert a c-string to std::string)
 			auto str_mitr = json_state.CheckMember(object, data_key_s, rj::kStringType);
-			if(str_mitr == object.MemberEnd())
-			{
-				success = false;
-			}
+			if(str_mitr == object.MemberEnd()) { success = false; }
 			else
 			{
 				s = std::string(str_mitr->value.GetString(), str_mitr->value.GetStringLength());
@@ -408,8 +413,8 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 				{
 					rjarray.PushBack(test_data.write(json_state), json_state.rjdoc.GetAllocator());
 				}
-				json_state.AddMember(json_state.rjdoc.GetObject(), rj::StringRef(key_array),
-									 test_array);
+				json_state.AddMember(
+					json_state.rjdoc.GetObject(), rj::StringRef(key_array), test_array);
 			}
 		}
 
@@ -460,10 +465,7 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 
 					data_type result(0, 0, "");
 
-					if(!result.read(json_state, test_object.rjvalue.GetObject()))
-					{
-						return -1;
-					}
+					if(!result.read(json_state, test_object.rjvalue.GetObject())) { return -1; }
 
 					if(expected_array[i] != result)
 					{
@@ -615,8 +617,10 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						{
 							int result[1];
 
-							if(!json_state.GetArrayRange(test_array.rjvalue.GetArray(), result,
-														 result + std::size(result)))
+							if(!json_state.GetArrayRange(
+								   test_array.rjvalue.GetArray(),
+								   result,
+								   result + std::size(result)))
 							{
 								return -1;
 							}
@@ -630,8 +634,10 @@ static int test_error_1(char* file_memory, size_t& file_size)
 							// technically ints should be doubles too.
 							double result[1];
 
-							if(!json_state.GetArrayRange(test_array.rjvalue.GetArray(), result,
-														 result + std::size(result)))
+							if(!json_state.GetArrayRange(
+								   test_array.rjvalue.GetArray(),
+								   result,
+								   result + std::size(result)))
 							{
 								return -1;
 							}
@@ -666,8 +672,8 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 					const char* result;
 
-					if(!json_state.GetMember(test_object.rjvalue.GetObject(), key_array_string,
-											 result))
+					if(!json_state.GetMember(
+						   test_object.rjvalue.GetObject(), key_array_string, result))
 					{
 						return -1;
 					}
@@ -694,8 +700,9 @@ static int test_error_1(char* file_memory, size_t& file_size)
 				}
 				{
 					slogf("\"%s\" does not exist\n", key_object_array);
-					CHECK(json_state.CheckMember(rjroot, key_object_array, rj::kArrayType) ==
-						  rjroot.MemberEnd());
+					CHECK(
+						json_state.CheckMember(rjroot, key_object_array, rj::kArrayType) ==
+						rjroot.MemberEnd());
 					CHECK(!serr_get_error().empty());
 				}
 				{
@@ -716,8 +723,9 @@ static int test_error_1(char* file_memory, size_t& file_size)
 				}
 				{
 					slogf("\"%s\" not an array\n", key_object);
-					CHECK(json_state.CheckMember(rjroot, key_object, rj::kArrayType) ==
-						  rjroot.MemberEnd());
+					CHECK(
+						json_state.CheckMember(rjroot, key_object, rj::kArrayType) ==
+						rjroot.MemberEnd());
 					CHECK(!serr_get_error().empty());
 				}
 				{
@@ -732,14 +740,16 @@ static int test_error_1(char* file_memory, size_t& file_size)
 					// things that don't exist
 					{
 						slogf("\"%s\" does not exist\n", key_object);
-						CHECK(json_state.CheckMember(rjobject, key_object, rj::kObjectType) ==
-							  rjobject.MemberEnd());
+						CHECK(
+							json_state.CheckMember(rjobject, key_object, rj::kObjectType) ==
+							rjobject.MemberEnd());
 						CHECK(!serr_get_error().empty());
 					}
 					{
 						slogf("\"%s\" does not exist\n", key_array);
-						CHECK(json_state.CheckMember(rjobject, key_array, rj::kArrayType) ==
-							  rjobject.MemberEnd());
+						CHECK(
+							json_state.CheckMember(rjobject, key_array, rj::kArrayType) ==
+							rjobject.MemberEnd());
 						CHECK(!serr_get_error().empty());
 					}
 					{
@@ -754,8 +764,9 @@ static int test_error_1(char* file_memory, size_t& file_size)
 					// int
 					{
 						slogf("\"%s\" not an object\n", key_object_int);
-						CHECK(json_state.CheckMember(rjobject, key_object_int, rj::kObjectType) ==
-							  rjobject.MemberEnd());
+						CHECK(
+							json_state.CheckMember(rjobject, key_object_int, rj::kObjectType) ==
+							rjobject.MemberEnd());
 						CHECK(!serr_get_error().empty());
 					}
 					{
@@ -768,8 +779,9 @@ static int test_error_1(char* file_memory, size_t& file_size)
 					// array
 					{
 						slogf("\"%s\" not an object\n", key_object_array);
-						CHECK(json_state.CheckMember(rjobject, key_object_array, rj::kObjectType) ==
-							  rjobject.MemberEnd());
+						CHECK(
+							json_state.CheckMember(rjobject, key_object_array, rj::kObjectType) ==
+							rjobject.MemberEnd());
 						CHECK(!serr_get_error().empty());
 					}
 					{
@@ -788,8 +800,8 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						{
 							slogf("array \"%s\" not enough elements\n", key_object_array);
 							int result[2] = {2, 3};
-							CHECK(!json_state.GetArrayRange(rjarray, result,
-															result + std::size(result)));
+							CHECK(!json_state.GetArrayRange(
+								rjarray, result, result + std::size(result)));
 							CHECK(!serr_get_error().empty());
 							CHECK(result[0] == 2);
 							CHECK(result[1] == 3);
@@ -809,8 +821,8 @@ static int test_error_1(char* file_memory, size_t& file_size)
 							slogf("array \"%s\" contains not string\n", key_object_array);
 							const char* original_result = "2";
 							const char* result[1] = {original_result};
-							CHECK(!json_state.GetArrayRange(rjarray, result,
-															result + std::size(result)));
+							CHECK(!json_state.GetArrayRange(
+								rjarray, result, result + std::size(result)));
 							CHECK(!serr_get_error().empty());
 							CHECK(result[0] == original_result);
 						}
@@ -880,9 +892,10 @@ static int test_error_1(char* file_memory, size_t& file_size)
 							// things that don't exist
 							{
 								slogf("\"%s\" does not exist\n", key_object);
-								CHECK(json_state.CheckMember(rjobject2, key_object,
-															 rj::kObjectType) ==
-									  rjobject2.MemberEnd());
+								CHECK(
+									json_state.CheckMember(
+										rjobject2, key_object, rj::kObjectType) ==
+									rjobject2.MemberEnd());
 								CHECK(!serr_get_error().empty());
 							}
 							{
@@ -902,9 +915,10 @@ static int test_error_1(char* file_memory, size_t& file_size)
 							}
 							{
 								slogf("\"%s\" not array\n", key_array_string);
-								CHECK(json_state.CheckMember(rjobject2, key_array_string,
-															 rj::kArrayType) ==
-									  rjobject2.MemberEnd());
+								CHECK(
+									json_state.CheckMember(
+										rjobject2, key_array_string, rj::kArrayType) ==
+									rjobject2.MemberEnd());
 								CHECK(!serr_get_error().empty());
 							}
 						}
@@ -929,14 +943,22 @@ int main()
 	char file_memory[9999];
 	size_t file_size = sizeof(file_memory);
 
+	int i;
+	switch(i)
+	{
+	case 0: break;
+	case 1: break;
+	}
+
 	struct job_type
 	{
 		const char* name;
 		int (*pfn)(char*, size_t&);
-	} test_jobs[] = {{"test_object_1", test_object_1},
-					 {"test_array_1", test_array_1},
-					 {"test_array_of_objects_1", test_array_of_objects_1},
-					 {"test_read_1", test_read_1}};
+	} test_jobs[] = {
+		{"test_object_1", test_object_1},
+		{"test_array_1", test_array_1},
+		{"test_array_of_objects_1", test_array_of_objects_1},
+		{"test_read_1", test_read_1}};
 
 	for(auto& job : test_jobs)
 	{

@@ -24,7 +24,8 @@ class RWops_Stdio_NoClose : public RWops
 {
   public:
 	FILE* fp;
-	RWops_Stdio_NoClose(FILE* stream, const char* file) : fp(stream)
+	RWops_Stdio_NoClose(FILE* stream, const char* file)
+	: fp(stream)
 	{
 		ASSERT(stream != NULL);
 		stream_info = (file == NULL ? stream_info : file);
@@ -46,8 +47,11 @@ class RWops_Stdio_NoClose : public RWops
 		size_t bytes_written = fwrite(ptr, size, nmemb, fp);
 		if(bytes_written != size && ferror(fp) != 0)
 		{
-			serrf("Error writing to datastream: `%s`, reason: %s (return: %d)\n", stream_info,
-				  strerror(errno), static_cast<int>(bytes_written));
+			serrf(
+				"Error writing to datastream: `%s`, reason: %s (return: %d)\n",
+				stream_info,
+				strerror(errno),
+				static_cast<int>(bytes_written));
 		}
 		return bytes_written;
 	}
@@ -56,8 +60,11 @@ class RWops_Stdio_NoClose : public RWops
 		int out = fseek(fp, offset, whence);
 		if(out != 0)
 		{
-			serrf("Error seeking in datastream: `%s`, reason: %s (return: %d)\n", stream_info,
-				  strerror(errno), out);
+			serrf(
+				"Error seeking in datastream: `%s`, reason: %s (return: %d)\n",
+				stream_info,
+				strerror(errno),
+				out);
 		}
 		return out;
 	}
@@ -77,7 +84,10 @@ class RWops_Stdio_NoClose : public RWops
 class RWops_Stdio_AutoClose : public RWops_Stdio_NoClose
 {
   public:
-	RWops_Stdio_AutoClose(FILE* stream, const char* file) : RWops_Stdio_NoClose(stream, file) {}
+	RWops_Stdio_AutoClose(FILE* stream, const char* file)
+	: RWops_Stdio_NoClose(stream, file)
+	{
+	}
 	~RWops_Stdio_AutoClose() override
 	{
 		// clearing the error because I don't want fclose to give an error just because the error
@@ -86,8 +96,11 @@ class RWops_Stdio_AutoClose : public RWops_Stdio_NoClose
 		int out = fclose(fp);
 		if(out != 0)
 		{
-			serrf("Failed to close: `%s`, reason: %s (return: %d)\n", stream_info, strerror(errno),
-				  out);
+			serrf(
+				"Failed to close: `%s`, reason: %s (return: %d)\n",
+				stream_info,
+				strerror(errno),
+				out);
 		}
 	}
 };
@@ -99,7 +112,9 @@ class RWops_SDL_NoClose : public RWops
   public:
 	SDL_RWops* sdl_ops;
 	bool error_flag;
-	RWops_SDL_NoClose(SDL_RWops* stream, const char* file) : sdl_ops(stream), error_flag(false)
+	RWops_SDL_NoClose(SDL_RWops* stream, const char* file)
+	: sdl_ops(stream)
+	, error_flag(false)
 	{
 		ASSERT(stream != NULL);
 		stream_info = (file == NULL ? stream_info : file);
@@ -120,8 +135,12 @@ class RWops_SDL_NoClose : public RWops
 		{
 			// errno is not set by fread, if I really wanted to I could use open() and read(), but
 			// that is too painful.
-			serrf("Error reading from datastream: `%s`, reason: %s  (size = %zu, return: %zu)\n",
-				  stream_info, error, nmemb, bytes_read);
+			serrf(
+				"Error reading from datastream: `%s`, reason: %s  (size = %zu, return: %zu)\n",
+				stream_info,
+				error,
+				nmemb,
+				bytes_read);
 			error_flag = true;
 		}
 		return bytes_read;
@@ -134,8 +153,12 @@ class RWops_SDL_NoClose : public RWops
 		const char* error = SDL_GetError(); // SDL_GetErrorMsg(buffer, sizeof(buffer));
 		if(bytes_written != nmemb)
 		{
-			serrf("Error writing to datastream: `%s`, reason: %s (size = %zu, return: %zu)\n",
-				  stream_info, error, nmemb, bytes_written);
+			serrf(
+				"Error writing to datastream: `%s`, reason: %s (size = %zu, return: %zu)\n",
+				stream_info,
+				error,
+				nmemb,
+				bytes_written);
 			error_flag = true;
 		}
 		return bytes_written;
@@ -147,8 +170,11 @@ class RWops_SDL_NoClose : public RWops
 		{
 			// char buffer[1024];
 			const char* error = SDL_GetError(); // SDL_GetErrorMsg(buffer, sizeof(buffer));
-			serrf("Error seeking in datastream: `%s`, reason: %s (return: %d)\n", stream_info,
-				  error, out);
+			serrf(
+				"Error seeking in datastream: `%s`, reason: %s (return: %d)\n",
+				stream_info,
+				error,
+				out);
 			error_flag = true;
 			return -1;
 		}
@@ -162,8 +188,11 @@ class RWops_SDL_NoClose : public RWops
 		{
 			// char buffer[1024];
 			const char* error = SDL_GetError(); // SDL_GetErrorMsg(buffer, sizeof(buffer));
-			serrf("Error calling tell in datastream: `%s`, reason: %s (return: %d)\n", stream_info,
-				  error, out);
+			serrf(
+				"Error calling tell in datastream: `%s`, reason: %s (return: %d)\n",
+				stream_info,
+				error,
+				out);
 			error_flag = true;
 		}
 		return out;
@@ -178,7 +207,10 @@ class RWops_SDL_NoClose : public RWops
 class RWops_SDL_AutoClose : public RWops_SDL_NoClose
 {
   public:
-	RWops_SDL_AutoClose(SDL_RWops* stream, const char* file) : RWops_SDL_NoClose(stream, file) {}
+	RWops_SDL_AutoClose(SDL_RWops* stream, const char* file)
+	: RWops_SDL_NoClose(stream, file)
+	{
+	}
 	~RWops_SDL_AutoClose() override
 	{
 		int out = SDL_RWclose(sdl_ops);

@@ -49,8 +49,11 @@ class JsonState : nocopy
 	// filename lifetime must persist, leaving info NULL will use RWops filename
 	// check_object can be used to disable the root requiring "{}"
 	bool open_file(RWops* file, const char* info = NULL, rj::Type expected = rj::kObjectType);
-	bool open_string(const char* buffer, size_t buffer_size, const char* info = NULL,
-					 rj::Type expected = rj::kObjectType);
+	bool open_string(
+		const char* buffer,
+		size_t buffer_size,
+		const char* info = NULL,
+		rj::Type expected = rj::kObjectType);
 
 	// open_string_insitu wouldn't be a bad idea, like for compressed files.
 	// but I have this feeling that this won't give a 2x performance boost for SSD's...
@@ -125,10 +128,7 @@ class JsonState : nocopy
 	void SetMember(const rj::Value::Object& object, K&& key, T&& value)
 	{
 		rj::Value::MemberIterator mitr = object.FindMember(key);
-		if(mitr != object.MemberEnd())
-		{
-			mitr->value = value;
-		}
+		if(mitr != object.MemberEnd()) { mitr->value = value; }
 		else
 		{
 			object.AddMember(key, value, rjdoc.GetAllocator());
@@ -157,8 +157,8 @@ class JsonState : nocopy
 			   !(std::is_same<double, UN_REF>::value &&
 				 (mitr->value.IsInt() || mitr->value.IsUint())))
 			{
-				internal_print_member_convert_error(__func__, mitr,
-													rj_string(rj::Value().Set(value)));
+				internal_print_member_convert_error(
+					__func__, mitr, rj_string(rj::Value().Set(value)));
 			}
 			else
 			{
@@ -186,8 +186,8 @@ class JsonState : nocopy
 			if(!rj::internal::TypeHelper<ValueT, UN_REF>::Is(*found) &&
 			   !(std::is_same<double, UN_REF>::value && (found->IsInt() || found->IsUint())))
 			{
-				internal_print_index_convert_error(__func__, index, found,
-												   rj_string(rj::Value().Set(value)));
+				internal_print_index_convert_error(
+					__func__, index, found, rj_string(rj::Value().Set(value)));
 			}
 			else
 			{
@@ -202,8 +202,8 @@ class JsonState : nocopy
 	// I could make a convenience wrapper that treats a member as an array,
 	// but it wouldn't work for 2d arrays.
 	template<class Iter, bool Const, class ValueT>
-	rj::GenericArray<Const, ValueT> SetArrayRange(const rj::GenericArray<Const, ValueT>& array,
-												  Iter start, Iter end)
+	rj::GenericArray<Const, ValueT>
+		SetArrayRange(const rj::GenericArray<Const, ValueT>& array, Iter start, Iter end)
 	{
 		array.Reserve(end - start, rjdoc.GetAllocator());
 		while(start != end)
@@ -234,8 +234,8 @@ class JsonState : nocopy
 			   !(std::is_same<double, UN_REF>::value &&
 				 (array_cur->IsInt() || array_cur->IsUint())))
 			{
-				internal_print_index_convert_error(__func__, (cur - start), array_cur,
-												   rj_string(rj::Value().Set(*cur)));
+				internal_print_index_convert_error(
+					__func__, (cur - start), array_cur, rj_string(rj::Value().Set(*cur)));
 				return false;
 			}
 			*cur = rj::internal::TypeHelper<ValueT, UN_REF>::Get(*array_cur);
@@ -259,14 +259,15 @@ class JsonState : nocopy
 
 	void internal_print_missing_member_error(const char* function, const char* key);
 	void internal_print_missing_index_error(const char* function, size_t index, size_t size);
-	void internal_print_member_convert_error(const char* function,
-											 const rj::Value::ConstMemberIterator& mitr,
-											 const char* expected);
-	void internal_print_index_convert_error(const char* function, size_t index,
-											const rj::Value::ConstValueIterator& value,
-											const char* expected);
-	void internal_print_array_size_error(const char* function, size_t array_size,
-										 size_t expected_size);
+	void internal_print_member_convert_error(
+		const char* function, const rj::Value::ConstMemberIterator& mitr, const char* expected);
+	void internal_print_index_convert_error(
+		const char* function,
+		size_t index,
+		const rj::Value::ConstValueIterator& value,
+		const char* expected);
+	void internal_print_array_size_error(
+		const char* function, size_t array_size, size_t expected_size);
 };
 
 // This is to help with printing error messages while reading,
@@ -285,10 +286,10 @@ class JsonMemberReader : nocopy
 #endif // MYDEBUG
 
 	JsonMemberReader(rj::Value::MemberIterator& mitr, JsonState& json_state)
-		: rjvalue(mitr->value), json_unwind_table(&json_state.json_unwind_table)
+	: rjvalue(mitr->value)
+	, json_unwind_table(&json_state.json_unwind_table)
 #ifdef MYDEBUG
-		  ,
-		  stack_level(json_state.json_unwind_table.size())
+	, stack_level(json_state.json_unwind_table.size())
 #endif // MYDEBUG
 	{
 		json_unwind_entry entry;
@@ -329,10 +330,10 @@ class JsonIndexReader : nocopy
 #endif // MYDEBUG
 
 	JsonIndexReader(rj::Value& array, size_t index, JsonState& json_state)
-		: rjvalue(array), json_unwind_table(&json_state.json_unwind_table)
+	: rjvalue(array)
+	, json_unwind_table(&json_state.json_unwind_table)
 #ifdef MYDEBUG
-		  ,
-		  stack_level(json_state.json_unwind_table.size())
+	, stack_level(json_state.json_unwind_table.size())
 #endif // MYDEBUG
 	{
 		json_unwind_entry entry;
