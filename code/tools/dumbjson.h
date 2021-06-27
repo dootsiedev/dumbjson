@@ -9,9 +9,8 @@
 #include <rapidjson/fwd.h>
 namespace rj = rapidjson;
 
-// This API is explosive, which is a feature. If you use the API improperly, it will trigger an
-// ASSERT. except it won't explode in certain cases, which kinda sucks, like if you forget to wraper
-// a Reader.
+// This API is explosive, which is a feature. If you use the rapidjson API improperly, it will trigger an
+// ASSERT.
 
 class JsonMemberReader;
 class JsonIndexReader;

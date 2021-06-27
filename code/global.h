@@ -127,4 +127,4 @@ void serrf(const char* msg, ...) __attribute__((format(printf, 1, 2)));
 
 // a possible improvement would be to use a std::vector as a parameter,
 // to allow a potential reuse of memory.
-std::unique_ptr<char[]> unique_vasprintf(int& length, const char* msg, va_list args);
+std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list args);

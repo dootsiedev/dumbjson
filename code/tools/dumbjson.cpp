@@ -6,6 +6,8 @@
 #include <rapidjson/error/en.h>
 #include <rapidjson/prettywriter.h>
 
+//TODO (dootsie): make the way how PrintError and Get/Check functions print messages more similar.
+
 const char* g_kTypeNames[] = {"Null", "False", "True", "Object", "Array", "String", "Number"};
 
 const char* g_unspecified_filename_default = "<unspecified>";
@@ -522,39 +524,12 @@ void JsonState::clear()
 	json_unwind_table.clear();
 }
 
-/*rj::Value::MemberIterator JsonState::CheckMember(rj::Value::Object && object,
-rj::Value::StringRefType key, rj::Type type)
-{
-	rj::Value::MemberIterator itr = object.FindMember(key);
-	if(itr == object.MemberEnd())
-	{
-		//note: I probably should move this into an internal_ error function but EH.
-		serrf("JsonState::%s Error in `%s`: No such node \"%s.%s\"\n", __func__, file_info,
-dump_path().c_str(), key.s); } else if(itr->value.GetType() != type) {
-		internal_print_member_convert_error(__func__, key.s, itr->value, g_kTypeNames[type]);
-		return object.MemberEnd();
-	}
-	return itr;
-}
-
-rj::Value::ValueIterator JsonState::CheckIndex(rj::Value::Array && array, int index, rj::Type type)
-{
-	auto found = internal_find_index(__func__, array, index);
-	if(found != NULL && found->GetType() != type)
-	{
-		internal_print_index_convert_error(__func__, index, *found, g_kTypeNames[type]);
-		return NULL;
-	}
-	return *found;
-}*/
-
 void JsonState::PrintError(const char* message, ...)
 {
 	va_list args;
 	va_start(args, message);
 
-	int length;
-	std::unique_ptr<char[]> buffer = unique_vasprintf(length, message, args);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
 
 	va_end(args);
 
@@ -565,8 +540,7 @@ void JsonState::PrintMemberError(const char* key, const char* message, ...)
 	va_list args;
 	va_start(args, message);
 
-	int length;
-	std::unique_ptr<char[]> buffer = unique_vasprintf(length, message, args);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
 
 	va_end(args);
 
@@ -585,8 +559,7 @@ void JsonState::PrintIndexError(size_t index, const char* message, ...)
 	va_list args;
 	va_start(args, message);
 
-	int length;
-	std::unique_ptr<char[]> buffer = unique_vasprintf(length, message, args);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
 
 	va_end(args);
 

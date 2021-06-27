@@ -149,7 +149,7 @@ void serrf(const char* msg, ...)
 	va_start(args, msg);
 
 	int length;
-	std::unique_ptr<char[]> buffer = unique_vasprintf(length, msg, args);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(&length, msg, args);
 
 	va_end(args);
 
@@ -158,27 +158,34 @@ void serrf(const char* msg, ...)
 	internal_get_serr_buffer()->append(buffer.get(), buffer.get() + length);
 }
 
-std::unique_ptr<char[]> unique_vasprintf(int& length, const char* msg, va_list args)
+std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list args)
 {
 	va_list temp_args;
 
 	// I haven't tested this but it says you should copy if you use valist more than once.
 	va_copy(temp_args, args);
 
+	int ret;
+
 #ifdef WIN32
 	// win32 has a compatible C standard library, but the security functions add strictness
-	length = _vscprintf(msg, temp_args);
+	ret = _vscprintf(msg, temp_args);
 #else
-	length = vsnprintf(NULL, 0, msg, temp_args);
+	ret = vsnprintf(NULL, 0, msg, temp_args);
 #endif
-	ASSERT(length != -1);
+	ASSERT(ret != -1);
 	va_end(temp_args);
 
-	std::unique_ptr<char[]> buffer(new char[length + 1]);
+	if(length != NULL)
+	{
+		*length = ret;
+	}
+
+	std::unique_ptr<char[]> buffer(new char[ret + 1]);
 #ifdef WIN32
-	int ret = vsprintf_s(buffer.get(), length + 1, msg, args);
+	ret = vsprintf_s(buffer.get(), ret + 1, msg, args);
 #else
-	int ret = vsnprintf(buffer.get(), length + 1, msg, args);
+	ret = vsnprintf(buffer.get(), ret + 1, msg, args);
 #endif
 	ASSERT(ret != -1);
 
