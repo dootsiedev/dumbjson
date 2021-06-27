@@ -528,9 +528,7 @@ void JsonState::PrintError(const char* message, ...)
 {
 	va_list args;
 	va_start(args, message);
-
 	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
-
 	va_end(args);
 
 	serrf("Error: at `%s` in `%s`: %s\n", dump_path().c_str(), file_info, buffer.get());
@@ -539,9 +537,7 @@ void JsonState::PrintMemberError(const char* key, const char* message, ...)
 {
 	va_list args;
 	va_start(args, message);
-
 	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
-
 	va_end(args);
 
 	if(json_unwind_table.empty())
@@ -558,9 +554,7 @@ void JsonState::PrintIndexError(size_t index, const char* message, ...)
 {
 	va_list args;
 	va_start(args, message);
-
 	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
-
 	va_end(args);
 
 	serrf("Error: at `%s[%zu]` in `%s`: %s\n", dump_path().c_str(), index, file_info, buffer.get());

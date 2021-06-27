@@ -132,8 +132,8 @@ void slogf(const char* msg, ...)
 {
 	va_list args;
 	va_start(args, msg);
-// win32 has a compatible C standard library, but the security functions add strictness
 #ifdef WIN32
+	// win32 has a compatible C standard library, but annex k prevents exploits or something.
 	vfprintf_s(stdout, msg, args);
 #else
 	vfprintf(stdout, msg, args);
@@ -145,50 +145,54 @@ void serrf(const char* msg, ...)
 {
 	serr_safe_stacktrace(1);
 
-	va_list args;
-	va_start(args, msg);
-
 	int length;
-	std::unique_ptr<char[]> buffer = unique_vasprintf(&length, msg, args);
+	va_list args;
 
+	va_start(args, msg);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(&length, msg, args);
 	va_end(args);
 
 	slog_raw(buffer.get(), length);
-
 	internal_get_serr_buffer()->append(buffer.get(), buffer.get() + length);
 }
 
 std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list args)
 {
+	int ret;
 	va_list temp_args;
 
-	// I haven't tested this but it says you should copy if you use valist more than once.
+	// it says you should copy if you use valist more than once.
 	va_copy(temp_args, args);
-
-	int ret;
-
 #ifdef WIN32
-	// win32 has a compatible C standard library, but the security functions add strictness
-	ret = _vscprintf(msg, temp_args);
+	char buf[1];
+	// win32 has a compatible C standard library, but annex k prevents exploits or something.
+	ret = vsnprintf_s(buf, 1, msg, temp_args);
 #else
 	ret = vsnprintf(NULL, 0, msg, temp_args);
 #endif
-	ASSERT(ret != -1);
 	va_end(temp_args);
 
-	if(length != NULL)
+	ASSERT(ret != -1);
+	if(ret == -1)
 	{
-		*length = ret;
+		char message[] = "?badformat?";
+		std::unique_ptr<char[]> buffer(new char[sizeof(message)]);
+		std::copy_n(message, sizeof(message), buffer.get());
+		if(length != NULL) { *length = sizeof(message) - 1; }
+		return buffer;
 	}
 
 	std::unique_ptr<char[]> buffer(new char[ret + 1]);
+
 #ifdef WIN32
 	ret = vsprintf_s(buffer.get(), ret + 1, msg, args);
 #else
 	ret = vsnprintf(buffer.get(), ret + 1, msg, args);
 #endif
+
 	ASSERT(ret != -1);
 
-	va_end(args);
+	if(length != NULL) { *length = ret; }
+
 	return buffer;
 }
