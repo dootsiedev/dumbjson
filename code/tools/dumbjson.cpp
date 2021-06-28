@@ -24,7 +24,10 @@ const char* rj_string(const rj::Value& value)
 	case rj::kArrayType: return g_kTypeNames[value.GetType()];
 
 	case rj::kNumberType:
-		if(value.IsDouble()) { return "Double"; }
+		if(value.IsDouble())
+		{
+			return "Double";
+		}
 		else if(value.IsInt())
 		{
 			return "Int";
@@ -285,19 +288,20 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 		}
 
 		// TODO (dootsie): I really want to move this out into another function,
-		// but I also have a very similar situation in read_string
+		// but I also have a very similar situation in open_string
 		// which needs a function as well, but I can't reduce copy-paste easily...
+		// and as much as it's tempting to just copy the file memory into a buffer
+		// and use the same code as open_string, that would be not ideal.
 
 		// find the offending line:
 		size_t line_n = 1; // should be 1 indexed
-		size_t prev_newline = 0;
+		size_t line_start_position = 0;
 		size_t buffers_passed = 0;
 		size_t bytes_read;
 
 		// reset the file cursor.
-		if(file->seek(0, SEEK_SET) != 0)
+		if(!CHECK(file->seek(0, SEEK_SET) != -1))
 		{
-			// serrf("SDL_RWseek: file stream can't seek\n");
 			return false;
 		}
 
@@ -316,35 +320,31 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 						"Line: %zu\n"
 						"Col: %zu\n",
 						line_n,
-						(offset - prev_newline));
-					size_t line_length = file_position - prev_newline;
+						(offset - line_start_position));
+					size_t line_length = file_position - line_start_position;
 
 					// sizeof(buffer)-1 to have space for a null terminator.
 					line_length = std::min(line_length, sizeof(buffer) - 1);
 
-					if(offset > prev_newline + line_length)
+					if(offset - line_start_position > line_length)
 					{
-						serrf(
-							"Error offset too long (delta: %zu)\n",
-							(offset - (prev_newline + line_length)));
+						serrf("offset too far to print line.\n");
 						return false;
 					}
 
-					if(file->seek(static_cast<int>(prev_newline), SEEK_SET) == -1)
+					if(!CHECK(file->seek(static_cast<int>(line_start_position), SEEK_SET) != -1))
 					{
-						// serrf("SDL_RWseek: file stream can't seek\n");
 						return false;
 					}
-					if(file->read(buffer, 1, line_length) != line_length)
+					if(!CHECK(file->read(buffer, 1, line_length) == line_length))
 					{
-						// serrf("SDL_RWread: could not read the line\n");
 						return false;
 					}
 					// clear any control values (mainly for windows \r\n)
-					char* line_end = std::remove_if(buffer, buffer + line_length, [](auto _1) {
-						return _1 != '\n' && _1 != '\t' &&
-							   (static_cast<int>(_1) < 32 || static_cast<int>(_1) == 127);
-					});
+					char* line_end =
+						std::remove_if(buffer, buffer + line_length, [](unsigned char _1) {
+							return _1 != '\n' && _1 != '\t' && (_1 < 32 || _1 == 127);
+						});
 
 					*line_end = '\0';
 					// print the line.
@@ -353,8 +353,7 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 					return false;
 				}
 				++line_n;
-				prev_newline = file_position + 1; //+1 to skip newline, so when the error starts at
-					// line 1, prev_newline will be 0.
+				line_start_position = file_position + 1;
 			} while(pos != last);
 			++buffers_passed;
 		}
@@ -398,7 +397,7 @@ bool JsonState::open_string(
 
 		// find the offending line:
 		size_t line_n = 1; // should be 1 indexed
-		size_t prev_newline = 0;
+		size_t line_start_position = 0;
 		const char* last = buffer + buffer_size;
 		const char* pos = buffer;
 
@@ -413,11 +412,11 @@ bool JsonState::open_string(
 					"Line: %zu\n"
 					"Col: %zu\n",
 					line_n,
-					(offset - prev_newline));
+					(offset - line_start_position));
 
 				// file_position should point to the location of '\n', which means it will be
 				// trimmed off.
-				size_t line_length = file_position - prev_newline;
+				size_t line_length = file_position - line_start_position;
 
 				// copy because I need to modify the contents (null terminator).
 				// I also don't want an absolutely gigantic line printed.
@@ -426,22 +425,19 @@ bool JsonState::open_string(
 				// needs to be less than the buffer (+ null terminator)
 				line_length = std::min(line_length, sizeof(copy_buffer) - 1);
 
-				if(offset > prev_newline + line_length)
+				if(offset - line_start_position > line_length)
 				{
-					serrf(
-						"Error offset too long (delta: %zu)\n",
-						(offset - (prev_newline + line_length)));
+					serrf("offset too far to print line.\n");
 					return false;
 				}
 
-				const char* line_start = buffer + prev_newline;
+				const char* line_start = buffer + line_start_position;
 				std::copy_n(line_start, line_length, copy_buffer);
 
 				// clear any control values (mainly for windows \r\n)
 				char* line_end =
-					std::remove_if(copy_buffer, copy_buffer + line_length, [](auto _1) {
-						return _1 != '\n' && _1 != '\t' &&
-							   (static_cast<int>(_1) < 32 || static_cast<int>(_1) == 127);
+					std::remove_if(copy_buffer, copy_buffer + line_length, [](unsigned char _1) {
+						return _1 != '\n' && _1 != '\t' && (_1 < 32 || _1 == 127);
 					});
 
 				*line_end = '\0';
@@ -451,9 +447,7 @@ bool JsonState::open_string(
 				return false;
 			}
 			++line_n;
-			prev_newline =
-				file_position +
-				1; //+1 to skip newline, so when the error starts at line 1, prev_newline will be 0.
+			line_start_position = file_position + 1;
 		} while(pos != last);
 		ASSERT(false && "unreachable?");
 	}
@@ -570,7 +564,10 @@ std::string JsonState::dump_path()
 		if(it->name != NULL)
 		{
 			// if at the start, ignore the root.
-			if(it != json_unwind_table.begin()) { path += '.'; }
+			if(it != json_unwind_table.begin())
+			{
+				path += '.';
+			}
 			path.append(it->name);
 		}
 		else

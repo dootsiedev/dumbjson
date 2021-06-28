@@ -127,7 +127,10 @@ class JsonState : nocopy
 	void SetMember(const rj::Value::Object& object, K&& key, T&& value)
 	{
 		rj::Value::MemberIterator mitr = object.FindMember(key);
-		if(mitr != object.MemberEnd()) { mitr->value = value; }
+		if(mitr != object.MemberEnd())
+		{
+			mitr->value = value;
+		}
 		else
 		{
 			object.AddMember(key, value, rjdoc.GetAllocator());

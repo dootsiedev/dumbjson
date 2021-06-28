@@ -377,7 +377,10 @@ struct data_type
 		{
 			// strings... (much more simple to just convert a c-string to std::string)
 			auto str_mitr = json_state.CheckMember(object, data_key_s, rj::kStringType);
-			if(str_mitr == object.MemberEnd()) { success = false; }
+			if(str_mitr == object.MemberEnd())
+			{
+				success = false;
+			}
 			else
 			{
 				s = std::string(str_mitr->value.GetString(), str_mitr->value.GetStringLength());
@@ -465,7 +468,10 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 
 					data_type result(0, 0, "");
 
-					if(!result.read(json_state, test_object.rjvalue.GetObject())) { return -1; }
+					if(!result.read(json_state, test_object.rjvalue.GetObject()))
+					{
+						return -1;
+					}
 
 					if(expected_array[i] != result)
 					{
@@ -753,21 +759,21 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 					// things that don't exist
 					{
-						slogf("\"%s\" does not exist\n", key_object);
+						slogf("\"%s.%s\" does not exist\n", key_object, key_object);
 						ASSERT(
 							json_state.CheckMember(rjobject, key_object, rj::kObjectType) ==
 							rjobject.MemberEnd());
 						ASSERT(!serr_get_error().empty());
 					}
 					{
-						slogf("\"%s\" does not exist\n", key_array);
+						slogf("\"%s.%s\" does not exist\n", key_object, key_array);
 						ASSERT(
 							json_state.CheckMember(rjobject, key_array, rj::kArrayType) ==
 							rjobject.MemberEnd());
 						ASSERT(!serr_get_error().empty());
 					}
 					{
-						slogf("\"%s\" does not exist\n", key_array_string);
+						slogf("\"%s.%s\" does not exist\n", key_object, key_array_string);
 						const char* result_original = "2";
 						const char* result = result_original;
 						ASSERT(!json_state.GetMember(rjobject, key_array_string, result));
@@ -777,14 +783,14 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 					// int
 					{
-						slogf("\"%s\" not an object\n", key_object_int);
+						slogf("\"%s.%s\" not an object\n", key_object, key_object_int);
 						ASSERT(
 							json_state.CheckMember(rjobject, key_object_int, rj::kObjectType) ==
 							rjobject.MemberEnd());
 						ASSERT(!serr_get_error().empty());
 					}
 					{
-						slogf("\"%s\" not an bool\n", key_object_int);
+						slogf("\"%s.%s\" not an bool\n", key_object, key_object_int);
 						bool result = true;
 						ASSERT(!json_state.GetMember(rjobject, key_object_int, result));
 						ASSERT(!serr_get_error().empty());
@@ -792,14 +798,14 @@ static int test_error_1(char* file_memory, size_t& file_size)
 					}
 					// array
 					{
-						slogf("\"%s\" not an object\n", key_object_array);
+						slogf("\"%s.%s\" not an object\n", key_object, key_object_array);
 						ASSERT(
 							json_state.CheckMember(rjobject, key_object_array, rj::kObjectType) ==
 							rjobject.MemberEnd());
 						ASSERT(!serr_get_error().empty());
 					}
 					{
-						slogf("\"%s\" not an bool\n", key_object_array);
+						slogf("\"%s.%s\" not an bool\n", key_object, key_object_array);
 						bool result = true;
 						ASSERT(!json_state.GetMember(rjobject, key_object_array, result));
 						ASSERT(!serr_get_error().empty());
@@ -812,7 +818,10 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						JsonMemberReader test_array(mitr, json_state);
 						const auto& rjarray = test_array.rjvalue.GetArray();
 						{
-							slogf("array \"%s\" not enough elements\n", key_object_array);
+							slogf(
+								"array \"%s.%s\" not enough elements\n",
+								key_object,
+								key_object_array);
 							int result[2] = {2, 3};
 							ASSERT(!json_state.GetArrayRange(
 								rjarray, result, result + std::size(result)));
@@ -821,18 +830,27 @@ static int test_error_1(char* file_memory, size_t& file_size)
 							ASSERT(result[1] == 3);
 						}
 						{
-							slogf("array \"%s\" too many elements\n", key_object_array);
-							const char* wtf[1];
-							ASSERT(!json_state.GetArrayRange(rjarray, wtf, wtf));
+							slogf(
+								"array \"%s.%s\" too many elements\n",
+								key_object,
+								key_object_array);
+							ASSERT(!json_state.GetArrayRange(
+								rjarray, (const char**)(NULL), (const char**)(NULL)));
 							ASSERT(!serr_get_error().empty());
 						}
 						{
-							slogf("array \"%s\" contains not object\n", key_object_array);
+							slogf(
+								"array \"%s.%s[0]\" contains not object\n",
+								key_object,
+								key_object_array);
 							ASSERT(json_state.CheckIndex(rjarray, 0, rj::kObjectType) == NULL);
 							ASSERT(!serr_get_error().empty());
 						}
 						{
-							slogf("array \"%s\" contains not string\n", key_object_array);
+							slogf(
+								"array \"%s.%s[0]\" contains not string\n",
+								key_object,
+								key_object_array);
 							const char* original_result = "2";
 							const char* result[1] = {original_result};
 							ASSERT(!json_state.GetArrayRange(
@@ -841,7 +859,10 @@ static int test_error_1(char* file_memory, size_t& file_size)
 							ASSERT(result[0] == original_result);
 						}
 						{
-							slogf("array \"%s\" contains not array\n", key_object_array);
+							slogf(
+								"array \"%s.%s[0]\" contains not array\n",
+								key_object,
+								key_object_array);
 							ASSERT(json_state.CheckIndex(rjarray, 0, rj::kArrayType) == NULL);
 							ASSERT(!serr_get_error().empty());
 						}
@@ -871,19 +892,19 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						ASSERT(!serr_get_error().empty());
 					}
 					{
-						slogf("array \"%s\" contains not bool\n", key_array);
+						slogf("array \"%s[0]\" contains not bool\n", key_array);
 						bool result[1] = {false};
 						ASSERT(!json_state.GetArrayRange(rjarray, result, result + 1));
 						ASSERT(!serr_get_error().empty());
 						ASSERT(!result[0]);
 					}
 					{
-						slogf("array \"%s\" contains not array\n", key_array);
+						slogf("array \"%s[0]\" contains not array\n", key_array);
 						ASSERT(json_state.CheckIndex(rjarray, 0, rj::kArrayType) == NULL);
 						ASSERT(!serr_get_error().empty());
 					}
 					{
-						slogf("array \"%s\" contains not null\n", key_array);
+						slogf("array \"%s[0]\" contains not null\n", key_array);
 						ASSERT(json_state.CheckIndex(rjarray, 0, rj::kNullType) == NULL);
 						ASSERT(!serr_get_error().empty());
 					}
@@ -905,7 +926,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 							// things that don't exist
 							{
-								slogf("\"%s\" does not exist\n", key_object);
+								slogf("\"%s[0].%s\" does not exist\n", key_array, key_object);
 								ASSERT(
 									json_state.CheckMember(
 										rjobject2, key_object, rj::kObjectType) ==
@@ -913,7 +934,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 								ASSERT(!serr_get_error().empty());
 							}
 							{
-								slogf("\"%s\" does not exist\n", key_array);
+								slogf("\"%s[0].%s\" does not exist\n", key_array, key_array);
 								ASSERT(
 									json_state.CheckMember(rjobject2, key_array, rj::kArrayType) ==
 									rjobject2.MemberEnd());
@@ -921,14 +942,14 @@ static int test_error_1(char* file_memory, size_t& file_size)
 							}
 							// string
 							{
-								slogf("\"%s\" not bool\n", key_array_string);
+								slogf("\"%s[0].%s\" not bool\n", key_array, key_array_string);
 								bool result = false;
 								ASSERT(!json_state.GetMember(rjobject2, key_array_string, result));
 								ASSERT(!serr_get_error().empty());
 								ASSERT(!result);
 							}
 							{
-								slogf("\"%s\" not array\n", key_array_string);
+								slogf("\"%s[0].%s\" not array\n", key_array, key_array_string);
 								ASSERT(
 									json_state.CheckMember(
 										rjobject2, key_array_string, rj::kArrayType) ==

@@ -75,7 +75,10 @@ bool implement_CHECK(bool cond, const char* expr, const char* file, int line)
 std::shared_ptr<std::string> internal_get_serr_buffer()
 {
 	static thread_local std::shared_ptr<std::string> buffer;
-	if(!buffer) { buffer = std::make_shared<std::string>(); }
+	if(!buffer)
+	{
+		buffer = std::make_shared<std::string>();
+	}
 	return buffer;
 }
 
@@ -166,7 +169,7 @@ std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list a
 #ifdef WIN32
 	char buf[1];
 	// win32 has a compatible C standard library, but annex k prevents exploits or something.
-	ret = vsnprintf_s(buf, 1, msg, temp_args);
+	ret = _vscprintf(msg, temp_args);
 #else
 	ret = vsnprintf(NULL, 0, msg, temp_args);
 #endif
@@ -178,7 +181,10 @@ std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list a
 		char message[] = "?badformat?";
 		std::unique_ptr<char[]> buffer(new char[sizeof(message)]);
 		std::copy_n(message, sizeof(message), buffer.get());
-		if(length != NULL) { *length = sizeof(message) - 1; }
+		if(length != NULL)
+		{
+			*length = sizeof(message) - 1;
+		}
 		return buffer;
 	}
 
@@ -192,7 +198,10 @@ std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list a
 
 	ASSERT(ret != -1);
 
-	if(length != NULL) { *length = ret; }
+	if(length != NULL)
+	{
+		*length = ret;
+	}
 
 	return buffer;
 }
