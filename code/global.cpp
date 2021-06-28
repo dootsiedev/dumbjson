@@ -167,7 +167,6 @@ std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list a
 	// it says you should copy if you use valist more than once.
 	va_copy(temp_args, args);
 #ifdef WIN32
-	char buf[1];
 	// win32 has a compatible C standard library, but annex k prevents exploits or something.
 	ret = _vscprintf(msg, temp_args);
 #else
