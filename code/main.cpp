@@ -972,7 +972,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 // This should probably be competely re-written because
 // this was supposed to be an example, not so much a test suit.
 
-int main()
+int main(int, char**)
 {
 	slogf("hello world\n");
 
