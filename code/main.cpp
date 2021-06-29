@@ -499,7 +499,7 @@ static int test_read_1(char* file_memory, size_t& file_size)
    "null":null})";
 		size_t temp_size = strlen(temp_file);
 		ASSERT(file_size > temp_size);
-/*
+		/*
 		Unique_RWops file = RWops_FromMemory_ReadOnly(temp_file, temp_size, __FUNCTION__);
 		if(!file) return -1;
 
