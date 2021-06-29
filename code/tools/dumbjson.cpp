@@ -357,6 +357,7 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 					return false;
 				}
 
+				// if a newline was found
 				if(pos != last)
 				{
 					++line_n;
