@@ -496,11 +496,10 @@ static int test_read_1(char* file_memory, size_t& file_size)
 //this is a comment
 {
 	/*another one!*/
-	"null":null}
-)";
+   "null":null})";
 		size_t temp_size = strlen(temp_file);
 		ASSERT(file_size > temp_size);
-
+/*
 		Unique_RWops file = RWops_FromMemory_ReadOnly(temp_file, temp_size, __FUNCTION__);
 		if(!file) return -1;
 
@@ -508,6 +507,9 @@ static int test_read_1(char* file_memory, size_t& file_size)
 		if(!json_state.open_file(file.get())) return -1;
 
 		file.reset();
+		*/
+
+		if(!json_state.open_string(temp_file, temp_size, __FUNCTION__)) return -1;
 
 		{
 			auto mitr = json_state.CheckMember(json_state.rjdoc.GetObject(), "null", rj::kNullType);

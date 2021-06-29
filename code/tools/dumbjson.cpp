@@ -3,10 +3,11 @@
 
 #include "RWops.h"
 
+#include <algorithm>
 #include <rapidjson/error/en.h>
 #include <rapidjson/prettywriter.h>
 
-//TODO (dootsie): make the way how PrintError and Get/Check functions print messages more similar.
+// TODO (dootsie): make the way how PrintError and Get/Check functions print messages more similar.
 
 const char* g_kTypeNames[] = {"Null", "False", "True", "Object", "Array", "String", "Number"};
 
@@ -281,9 +282,8 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 			GetParseError_En(rjdoc.GetParseError()),
 			offset);
 
-		if(!file->good())
+		if(!CHECK(file->good()))
 		{
-			serrf("bad file stream\n");
 			return false;
 		}
 
@@ -309,14 +309,10 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 		{
 			char* last = buffer + bytes_read;
 			char* pos = buffer;
-			do
+			while(pos != last)
 			{
 				char* last_pos = pos;
 				pos = std::find(pos, last, '\n');
-
-				// go over the newline for the next std::find
-				pos = std::min(pos + 1, last);
-
 				file_position += (pos - last_pos);
 
 				if(offset < file_position)
@@ -326,15 +322,16 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 						"Col: %zu\n",
 						line_n + 1,
 						(offset - start_position) + 1);
-					size_t line_length = file_position - start_position;
-
-					line_length = std::min(line_length, sizeof(buffer) - 1);
 
 					if(offset - start_position > sizeof(buffer) - 1)
 					{
 						serrf("offset too far to print line.\n");
 						return false;
 					}
+
+					size_t line_length = file_position - start_position;
+
+					line_length = std::min(line_length, sizeof(buffer) - 1);
 
 					if(!CHECK(file->seek(static_cast<int>(start_position), SEEK_SET) != -1))
 					{
@@ -351,19 +348,25 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 						});
 
 					*line_end = '\0';
+
+					// tabs to spaces because it makes the column index clearer.
+					std::replace(buffer, line_end, '\t', ' ');
+
 					// print the line.
+					// I could print a tiny arrow to the column, but it's tricky.
 					serrf(">>>%s\n", buffer);
-					// I could print a tiny arrow to the column, but it doesn't work good with utf8
+
 					return false;
 				}
-
 				// if a newline was found
 				if(pos != last)
 				{
-					++line_n;
+					++pos;
+					++file_position;
 					start_position = file_position;
+					++line_n;
 				}
-			} while(pos != last);
+			}
 		}
 		ASSERT(false && "unreachable?");
 		return false;
@@ -404,59 +407,65 @@ bool JsonState::open_string(
 			offset);
 
 		// find the offending line:
-		size_t line_n = 1; // should be 1 indexed
-		size_t line_start_position = 0;
+		size_t line_n = 0; // should be 1 indexed
+		size_t start_position = 0;
 		const char* last = buffer + buffer_size;
 		const char* pos = buffer;
 
-		do
+		while(pos != last)
 		{
 			pos = std::find(pos, last, '\n');
 			size_t file_position = (pos - buffer);
-			++pos; // go over the newline for the next std::find
-			if(offset <= file_position)
+			if(offset < file_position)
 			{
 				serrf(
 					"Line: %zu\n"
 					"Col: %zu\n",
-					line_n,
-					(offset - line_start_position));
+					line_n + 1,
+					(offset - start_position) + 1);
 
-				// file_position should point to the location of '\n', which means it will be
-				// trimmed off.
-				size_t line_length = file_position - line_start_position;
-
-				// copy because I need to modify the contents (null terminator).
+				// copy because I need to modify the contents.
 				// I also don't want an absolutely gigantic line printed.
 				char copy_buffer[1024];
 
-				// needs to be less than the buffer (+ null terminator)
-				line_length = std::min(line_length, sizeof(copy_buffer) - 1);
-
-				if(offset - line_start_position > line_length)
+				if(offset - start_position > sizeof(copy_buffer) - 1)
 				{
 					serrf("offset too far to print line.\n");
 					return false;
 				}
 
-				const char* line_start = buffer + line_start_position;
-				std::copy_n(line_start, line_length, copy_buffer);
+				// file_position should point to the location of '\n', which means it will be
+				// trimmed off.
+				size_t line_length = file_position - start_position;
+
+				// needs to be less than the buffer (+ null terminator)
+				line_length = std::min(line_length, sizeof(copy_buffer) - 1);
+
+				memcpy(copy_buffer, buffer + start_position, line_length);
 
 				// clear any control values (mainly for windows \r\n)
+				// control values can ruin the column offset,
+				// but why would you have control values in json?
 				char* line_end =
 					std::remove_if(copy_buffer, copy_buffer + line_length, [](unsigned char _1) {
 						return _1 != '\n' && _1 != '\t' && (_1 < 32 || _1 == 127);
 					});
 
 				*line_end = '\0';
+
+				// tabs to spaces because it makes the column index clearer.
+				std::replace(copy_buffer, line_end, '\t', ' ');
+
 				// print the line.
 				serrf(">>>%s\n", copy_buffer);
 				// I could print a tiny arrow to the column, but it doesn't work good with utf8
 				return false;
 			}
+			// go over the newline for the next std::find
+			pos = std::min(pos + 1, last);
+			start_position = file_position + 1;
 			++line_n;
-			line_start_position = file_position + 1;
-		} while(pos != last);
+		}
 		ASSERT(false && "unreachable?");
 	}
 
