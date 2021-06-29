@@ -323,7 +323,7 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 						line_n + 1,
 						(offset - start_position) + 1);
 
-					if(offset - start_position > sizeof(buffer) - 1)
+					if(offset - start_position + 1 > sizeof(buffer) - 1)
 					{
 						serrf("offset too far to print line.\n");
 						return false;
@@ -428,7 +428,7 @@ bool JsonState::open_string(
 				// I also don't want an absolutely gigantic line printed.
 				char copy_buffer[1024];
 
-				if(offset - start_position > sizeof(copy_buffer) - 1)
+				if(offset - start_position + 1 > sizeof(copy_buffer) - 1)
 				{
 					serrf("offset too far to print line.\n");
 					return false;

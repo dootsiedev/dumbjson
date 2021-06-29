@@ -50,7 +50,7 @@ static int test_object_1(char* file_memory, size_t& file_size)
 
 		// writing
 		// Unique_RWops file = RWops_OpenFS("path.json", "wb");
-		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __FUNCTION__);
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
 		if(!file) return -1;
 		if(!json_state.write_file(file.get())) return -1;
 		int get_file_size;
@@ -61,7 +61,7 @@ static int test_object_1(char* file_memory, size_t& file_size)
 		JsonState json_state;
 
 		// Unique_RWops file = RWops_OpenFS("path.json", "rb");
-		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __FUNCTION__);
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
 		if(!file) return -1;
 
 		// this will also check if root is an object.
@@ -423,7 +423,7 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 
 		// writing
 		// Unique_RWops file = RWops_OpenFS("path.json", "wb");
-		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __FUNCTION__);
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
 		if(!file) return -1;
 		if(!json_state.write_file(file.get())) return -1;
 		int get_file_size;
@@ -434,7 +434,7 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 		JsonState json_state;
 
 		// Unique_RWops file = RWops_OpenFS("path.json", "rb");
-		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __FUNCTION__);
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
 		if(!file) return -1;
 
 		// this will also check if root is an object.
@@ -500,7 +500,7 @@ static int test_read_1(char* file_memory, size_t& file_size)
 		size_t temp_size = strlen(temp_file);
 		ASSERT(file_size > temp_size);
 		/*
-		Unique_RWops file = RWops_FromMemory_ReadOnly(temp_file, temp_size, __FUNCTION__);
+		Unique_RWops file = RWops_FromMemory_ReadOnly(temp_file, temp_size, __func__);
 		if(!file) return -1;
 
 		// this will also check if root is an object.
@@ -509,7 +509,7 @@ static int test_read_1(char* file_memory, size_t& file_size)
 		file.reset();
 		*/
 
-		if(!json_state.open_string(temp_file, temp_size, __FUNCTION__)) return -1;
+		if(!json_state.open_string(temp_file, temp_size, __func__)) return -1;
 
 		{
 			auto mitr = json_state.CheckMember(json_state.rjdoc.GetObject(), "null", rj::kNullType);
@@ -520,7 +520,7 @@ static int test_read_1(char* file_memory, size_t& file_size)
 	{
 		// I just write the file out as a way of testing.
 		// actually testing would be better, but I feel like previous tests should work.
-		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __FUNCTION__);
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
 		if(!file) return -1;
 		if(!json_state.write_file(file.get())) return -1;
 
@@ -557,7 +557,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 		ASSERT(file_size > temp_size);
 
 		{
-			Unique_RWops file = RWops_FromMemory_ReadOnly(temp_file, temp_size, __FUNCTION__);
+			Unique_RWops file = RWops_FromMemory_ReadOnly(temp_file, temp_size, __func__);
 			if(!file) return -1;
 
 			// this will also check if root is an object.
@@ -568,7 +568,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 		{
 			// I just write the file out, for sanity.
-			Unique_RWops file = RWops_FromMemory(file_memory, file_size, __FUNCTION__);
+			Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
 			if(!file) return -1;
 			if(!json_state.write_file(file.get())) return -1;
 
