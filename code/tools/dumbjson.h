@@ -6,11 +6,11 @@
 //#define MYDEBUG
 
 #include <rapidjson/document.h>
-#include <rapidjson/fwd.h>
+#include <rapidjson/stringbuffer.h>
 namespace rj = rapidjson;
 
-// This API is explosive, which is a feature. If you use the rapidjson API improperly, it will trigger an
-// ASSERT.
+// This API is explosive, which is a feature.
+// If you use the rapidjson API improperly, it will trigger an ASSERT.
 
 class JsonMemberReader;
 class JsonIndexReader;
@@ -254,10 +254,6 @@ class JsonState : nocopy
 
 	// prints the path of the current Json(Member/Index)(Writer/Reader) stack.
 	std::string dump_path();
-
-	// rj::Value::ConstMemberIterator internal_find_member(const char* function, const
-	// rj::Value::ConstObject &object, rj::Value::StringRefType key); rj::Value::ConstValueIterator
-	// internal_find_index(const char* function, const rj::Value::Array &array, int index);
 
 	void internal_print_missing_member_error(const char* function, const char* key);
 	void internal_print_missing_index_error(const char* function, size_t index, size_t size);

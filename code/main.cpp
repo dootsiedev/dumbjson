@@ -537,7 +537,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 	JsonState json_state;
 
 	{
-		char temp_file[] = R"(
+		char temp_file[] = R"(*
 {
 	"node":
 	{

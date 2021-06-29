@@ -287,6 +287,12 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 			return false;
 		}
 
+		// reset the file cursor.
+		if(!CHECK(file->seek(0, SEEK_SET) != -1))
+		{
+			return false;
+		}
+
 		// TODO (dootsie): I really want to move this out into another function,
 		// but I also have a very similar situation in open_string
 		// which needs a function as well, but I can't reduce copy-paste easily...
@@ -294,45 +300,43 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 		// and use the same code as open_string, that would be not ideal.
 
 		// find the offending line:
-		size_t line_n = 1; // should be 1 indexed
-		size_t line_start_position = 0;
-		size_t buffers_passed = 0;
+		size_t line_n = 0; // should be 1 indexed
+		size_t file_position = 0;
+		size_t start_position = 0;
+
 		size_t bytes_read;
-
-		// reset the file cursor.
-		if(!CHECK(file->seek(0, SEEK_SET) != -1))
-		{
-			return false;
-		}
-
 		while((bytes_read = file->read(buffer, 1, sizeof(buffer))) > 0)
 		{
 			char* last = buffer + bytes_read;
 			char* pos = buffer;
 			do
 			{
+				char* last_pos = pos;
 				pos = std::find(pos, last, '\n');
-				size_t file_position = (buffers_passed * sizeof(buffer)) + (pos - buffer);
-				++pos; // go over the newline for the next std::find
-				if(offset <= file_position)
+
+				// go over the newline for the next std::find
+				pos = std::min(pos + 1, last);
+
+				file_position += (pos - last_pos);
+
+				if(offset < file_position)
 				{
 					serrf(
 						"Line: %zu\n"
 						"Col: %zu\n",
-						line_n,
-						(offset - line_start_position));
-					size_t line_length = file_position - line_start_position;
+						line_n + 1,
+						(offset - start_position) + 1);
+					size_t line_length = file_position - start_position;
 
-					// sizeof(buffer)-1 to have space for a null terminator.
 					line_length = std::min(line_length, sizeof(buffer) - 1);
 
-					if(offset - line_start_position > line_length)
+					if(offset - start_position > sizeof(buffer) - 1)
 					{
 						serrf("offset too far to print line.\n");
 						return false;
 					}
 
-					if(!CHECK(file->seek(static_cast<int>(line_start_position), SEEK_SET) != -1))
+					if(!CHECK(file->seek(static_cast<int>(start_position), SEEK_SET) != -1))
 					{
 						return false;
 					}
@@ -352,10 +356,13 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 					// I could print a tiny arrow to the column, but it doesn't work good with utf8
 					return false;
 				}
-				++line_n;
-				line_start_position = file_position + 1;
+
+				if(pos != last)
+				{
+					++line_n;
+					start_position = file_position;
+				}
 			} while(pos != last);
-			++buffers_passed;
 		}
 		ASSERT(false && "unreachable?");
 		return false;
