@@ -571,7 +571,6 @@ void JsonState::PrintIndexError(size_t index, const char* message, ...)
 	serrf("Error: at `%s[%zu]` in `%s`: %s\n", dump_path().c_str(), index, file_info, buffer.get());
 }
 
-// prints the path of the current Json(Member/Index)(Writer/Reader) stack.
 std::string JsonState::dump_path()
 {
 	// not efficent by any means, but errors aren't efficent.
