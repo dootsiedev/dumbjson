@@ -309,13 +309,13 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 		{
 			char* last = buffer + bytes_read;
 			char* pos = buffer;
-			while(pos != last)
+			while(true)
 			{
 				char* last_pos = pos;
 				pos = std::find(pos, last, '\n');
 				file_position += (pos - last_pos);
 
-				if(offset < file_position)
+				if(offset <= file_position)
 				{
 					serrf(
 						"Line: %zu\n"
@@ -358,6 +358,11 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 
 					return false;
 				}
+
+				if(pos == last){
+					break;
+				}
+
 				// if a newline was found
 				if(pos != last)
 				{
@@ -368,6 +373,8 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 				}
 			}
 		}
+
+		ASSERT(file->good());
 		ASSERT(false && "unreachable?");
 		return false;
 	}
@@ -412,11 +419,11 @@ bool JsonState::open_string(
 		const char* last = buffer + buffer_size;
 		const char* pos = buffer;
 
-		while(pos != last)
+		while(true)
 		{
 			pos = std::find(pos, last, '\n');
 			size_t file_position = (pos - buffer);
-			if(offset < file_position)
+			if(offset <= file_position)
 			{
 				serrf(
 					"Line: %zu\n"
@@ -461,6 +468,11 @@ bool JsonState::open_string(
 				// I could print a tiny arrow to the column, but it doesn't work good with utf8
 				return false;
 			}
+
+			if(pos == last){
+				break;
+			}
+
 			// go over the newline for the next std::find
 			pos = std::min(pos + 1, last);
 			start_position = file_position + 1;
