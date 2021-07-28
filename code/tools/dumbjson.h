@@ -12,8 +12,8 @@ namespace rj = rapidjson;
 // This API is explosive, which is a feature.
 // If you use the rapidjson API improperly, it will trigger an ASSERT.
 
-class JsonMemberScope;
-class JsonIndexScope;
+class JsonMemberReader;
+class JsonIndexReader;
 class RWops;
 
 extern const char* g_kTypeNames[];
@@ -245,14 +245,22 @@ class JsonState : nocopy
 		return true;
 	}
 
-	// purely for user errors, ex: too many or too few elements in an array.
-	void PrintError(const char* message, ...) __attribute__((format(printf, 2, 3)));
-	void PrintMemberError(const char* key, const char* message, ...)
+	// purely for user errors, ex: too many or too few elements in an array, number too big, etc.
+	// Print- works like puts(), Format- works like printf().
+	// you need to use -MemberError for GetMember.
+	// you need to use -IndexError for GetArrayRange or GetIndex.
+	// Print/FormatError should only be used for Array size errors, or empty Object.
+	void PrintError(const char* message);
+	void PrintMemberError(const char* key, const char* message);
+	void PrintIndexError(size_t index, const char* message);
+
+	void FormatError(const char* format, ...) __attribute__((format(printf, 2, 3)));
+	void FormatMemberError(const char* key, const char* format, ...)
 		__attribute__((format(printf, 3, 4)));
-	void PrintIndexError(size_t index, const char* message, ...)
+	void FormatIndexError(size_t index, const char* format, ...)
 		__attribute__((format(printf, 3, 4)));
 
-	// prints the path of the current stack of JsonMemberScope / JsonIndexScope
+	// prints the path of the current stack of JsonMemberReader / JsonIndexReader
 	std::string dump_path();
 
 	void internal_print_missing_member_error(const char* function, const char* key);
@@ -269,11 +277,12 @@ class JsonState : nocopy
 };
 
 // This is to help with printing error messages while reading,
-// For every JsonMemberScope, you are putting a name on the error message.
+// For every JsonMemberReader, you are putting a name on the error message.
 // You must use this with JsonState::CheckMember for missing + type errors.
 // The destructor pops the name off the stack (for a proper error message),
 // you can explicitly call finish() to pop the name off the stack.
-class JsonMemberScope : nocopy
+// nitpick: the name "Reader" is misleading, it doesn't read anything.
+class JsonMemberReader : nocopy
 {
   public:
 	// this is a pointer purely for the use as a finish flag.
@@ -282,7 +291,7 @@ class JsonMemberScope : nocopy
 	size_t stack_level;
 #endif // MYDEBUG
 
-	JsonMemberScope(rj::Value::MemberIterator mitr, JsonState& json_state)
+	JsonMemberReader(rj::Value::MemberIterator mitr, JsonState& json_state)
 	: json_unwind_table(&json_state.json_unwind_table)
 #ifdef MYDEBUG
 	, stack_level(json_state.json_unwind_table.size())
@@ -305,7 +314,7 @@ class JsonMemberScope : nocopy
 		}
 	}
 
-	~JsonMemberScope()
+	~JsonMemberReader()
 	{
 		finish();
 	}
@@ -313,9 +322,9 @@ class JsonMemberScope : nocopy
 
 // this is to help with printing error messages while reading,
 // this is only for when you have an object within an array.
-// read JsonMemberScope for more info.
+// read JsonMemberReader for more info.
 // note you need to use JsonState::CheckIndex(...rj::kObjectType/kArrayType).
-class JsonIndexScope : nocopy
+class JsonIndexReader : nocopy
 {
   public:
 	// this is a pointer purely for the use as a finish flag.
@@ -324,7 +333,7 @@ class JsonIndexScope : nocopy
 	size_t stack_level;
 #endif // MYDEBUG
 
-	JsonIndexScope(size_t index, JsonState& json_state)
+	JsonIndexReader(size_t index, JsonState& json_state)
 	: json_unwind_table(&json_state.json_unwind_table)
 #ifdef MYDEBUG
 	, stack_level(json_state.json_unwind_table.size())
@@ -350,7 +359,7 @@ class JsonIndexScope : nocopy
 		}
 	}
 
-	~JsonIndexScope()
+	~JsonIndexReader()
 	{
 		finish();
 	}

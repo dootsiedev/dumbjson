@@ -1,5 +1,7 @@
 #include "global.h"
 
+#include <cstring>
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -163,6 +165,7 @@ std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list a
 {
 	int ret;
 	va_list temp_args;
+	std::unique_ptr<char[]> buffer;
 
 	// it says you should copy if you use valist more than once.
 	va_copy(temp_args, args);
@@ -175,19 +178,9 @@ std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list a
 	va_end(temp_args);
 
 	ASSERT(ret != -1);
-	if(ret == -1)
-	{
-		char message[] = "?badformat?";
-		std::unique_ptr<char[]> buffer(new char[sizeof(message)]);
-		std::copy_n(message, sizeof(message), buffer.get());
-		if(length != NULL)
-		{
-			*length = sizeof(message) - 1;
-		}
-		return buffer;
-	}
+	if(ret == -1) goto err;
 
-	std::unique_ptr<char[]> buffer(new char[ret + 1]);
+	buffer.reset(new char[ret + 1]);
 
 #ifdef WIN32
 	ret = vsprintf_s(buffer.get(), ret + 1, msg, args);
@@ -196,11 +189,22 @@ std::unique_ptr<char[]> unique_vasprintf(int* length, const char* msg, va_list a
 #endif
 
 	ASSERT(ret != -1);
+	if(ret == -1) goto err;
 
 	if(length != NULL)
 	{
 		*length = ret;
 	}
 
+	return buffer;
+
+err:
+	static char badformatmessage[] = "??";
+	buffer.reset(new char[sizeof(badformatmessage)]);
+	memcpy(buffer.get(), badformatmessage, sizeof(badformatmessage));
+	if(length != NULL)
+	{
+		*length = sizeof(badformatmessage) - 1;
+	}
 	return buffer;
 }

@@ -79,7 +79,7 @@ static int test_object_1(char* file_memory, size_t& file_size)
 
 				// put it in the wrapper for good errors,
 				// call .finish() if you can't call the destructor before moving to the next object.
-				JsonMemberScope test_object(mitr, json_state);
+				JsonMemberReader test_object(mitr, json_state);
 				const auto& rjobject = mitr->value.GetObject();
 
 				{
@@ -233,7 +233,7 @@ static int test_array_1(char* file_memory, size_t& file_size)
 			{
 				auto mitr = json_state.CheckMember(rjroot, key_double, rj::kArrayType);
 				if(mitr == rjroot.MemberEnd()) return -1;
-				JsonMemberScope test_array(mitr, json_state);
+				JsonMemberReader test_array(mitr, json_state);
 
 				double result[std::size(expected_double)];
 
@@ -253,7 +253,7 @@ static int test_array_1(char* file_memory, size_t& file_size)
 			{
 				auto mitr = json_state.CheckMember(rjroot, key_int, rj::kArrayType);
 				if(mitr == rjroot.MemberEnd()) return -1;
-				JsonMemberScope test_array(mitr, json_state);
+				JsonMemberReader test_array(mitr, json_state);
 
 				int result[std::size(expected_int)];
 
@@ -273,7 +273,7 @@ static int test_array_1(char* file_memory, size_t& file_size)
 			{
 				auto mitr = json_state.CheckMember(rjroot, key_bool, rj::kArrayType);
 				if(mitr == rjroot.MemberEnd()) return -1;
-				JsonMemberScope test_array(mitr, json_state);
+				JsonMemberReader test_array(mitr, json_state);
 
 				bool result[std::size(expected_bool)];
 
@@ -295,7 +295,7 @@ static int test_array_1(char* file_memory, size_t& file_size)
 				// but this is the only way how to get the length of the string.
 				auto mitr = json_state.CheckMember(rjroot, key_string, rj::kArrayType);
 				if(mitr == rjroot.MemberEnd()) return -1;
-				JsonMemberScope test_array(mitr, json_state);
+				JsonMemberReader test_array(mitr, json_state);
 
 				const auto& rjarray = mitr->value.GetArray();
 
@@ -320,7 +320,7 @@ static int test_array_1(char* file_memory, size_t& file_size)
 			{
 				auto mitr = json_state.CheckMember(rjroot, key_cstring, rj::kArrayType);
 				if(mitr == rjroot.MemberEnd()) return -1;
-				JsonMemberScope test_array(mitr, json_state);
+				JsonMemberReader test_array(mitr, json_state);
 
 				const char* result[std::size(expected_cstring)];
 
@@ -350,13 +350,6 @@ struct data_type
 	int i;
 	double d;
 	std::string s;
-
-	data_type(int i_, double d_, std::string&& s_)
-	: i(i_)
-	, d(d_)
-	, s(std::move(s_))
-	{
-	}
 
 	rj::Value write(JsonState& json_state) const
 	{
@@ -449,7 +442,7 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 				auto mitr = json_state.CheckMember(rjroot, key_array, rj::kArrayType);
 				if(mitr == rjroot.MemberEnd()) return -1;
 
-				JsonMemberScope test_array(mitr, json_state);
+				JsonMemberReader test_array(mitr, json_state);
 				const auto& rjarray = mitr->value.GetArray();
 
 				size_t test_array_size = rjarray.Size();
@@ -462,11 +455,11 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 
 				for(size_t i = 0; i < test_array_size; ++i)
 				{
-					auto *vitr = json_state.CheckIndex(rjarray, i, rj::kObjectType);
+					auto* vitr = json_state.CheckIndex(rjarray, i, rj::kObjectType);
 					if(vitr == NULL) return -1;
-					JsonIndexScope test_object(i, json_state);
+					JsonIndexReader test_object(i, json_state);
 
-					data_type result(0, 0, "");
+					data_type result;
 
 					if(!result.read(json_state, vitr->GetObject()))
 					{
@@ -594,7 +587,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 					if(mitr == rjroot.MemberEnd()) return -1;
 
 					// put it in the wrapper for good errors.
-					JsonMemberScope test_object(mitr, json_state);
+					JsonMemberReader test_object(mitr, json_state);
 					const auto& rjobject = mitr->value.GetObject();
 
 					{
@@ -620,15 +613,13 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						// auto
 						mitr = json_state.CheckMember(rjobject, key_object_array, rj::kArrayType);
 						if(mitr == rjobject.MemberEnd()) return -1;
-						JsonMemberScope test_array(mitr, json_state);
+						JsonMemberReader test_array(mitr, json_state);
 
 						{
-							int result[1];
+							int result[1] = {0};
 
 							if(!json_state.GetArrayRange(
-								   mitr->value.GetArray(),
-								   result,
-								   result + std::size(result)))
+								   mitr->value.GetArray(), result, result + std::size(result)))
 							{
 								return -1;
 							}
@@ -640,12 +631,10 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						}
 						{
 							// technically ints should be doubles too.
-							double result[1];
+							double result[1] = {0.0};
 
 							if(!json_state.GetArrayRange(
-								   mitr->value.GetArray(),
-								   result,
-								   result + std::size(result)))
+								   mitr->value.GetArray(), result, result + std::size(result)))
 							{
 								return -1;
 							}
@@ -660,7 +649,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 				{
 					auto mitr = json_state.CheckMember(rjroot, key_array, rj::kArrayType);
 					if(mitr == rjroot.MemberEnd()) return -1;
-					JsonMemberScope test_array(mitr, json_state);
+					JsonMemberReader test_array(mitr, json_state);
 
 					const auto& rjarray = mitr->value.GetArray();
 
@@ -676,19 +665,18 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 					auto* vitr = json_state.CheckIndex(rjarray, 0, rj::kObjectType);
 					if(vitr == NULL) return -1;
-					JsonIndexScope test_object(0, json_state);
+					JsonIndexReader test_object(0, json_state);
 
 					const char* result;
 
-					if(!json_state.GetMember(
-						   vitr->GetObject(), key_array_string, result))
+					if(!json_state.GetMember(vitr->GetObject(), key_array_string, result))
 					{
 						return -1;
 					}
 
 					if(strcmp(result, "a") != 0)
 					{
-						json_state.PrintError("incorrect value != \"a\"");
+						json_state.PrintMemberError(key_array_string, "incorrect value != \"a\"");
 						return -1;
 					}
 				}
@@ -698,16 +686,18 @@ static int test_error_1(char* file_memory, size_t& file_size)
 				// now start checking the errors.
 				json_state.PrintError("PrintError!");
 				ASSERT(!serr_get_error().empty());
-				json_state.PrintError("PrintError, with %s!", "vargs");
+				json_state.FormatError("FormatError, with %s!", "vargs");
 				ASSERT(!serr_get_error().empty());
+
 				json_state.PrintMemberError("nonexistant", "PrintMemberError Error!");
 				ASSERT(!serr_get_error().empty());
-				json_state.PrintMemberError(
-					"nonexistant", "PrintMemberError Error with %s!", "vargs");
+				json_state.FormatMemberError(
+					"nonexistant", "FormatMemberError Error with %s!", "vargs");
 				ASSERT(!serr_get_error().empty());
+
 				json_state.PrintIndexError(123, "PrintIndexError Error!");
 				ASSERT(!serr_get_error().empty());
-				json_state.PrintIndexError(123, "PrintIndexError Error with %s!", "vargs");
+				json_state.FormatIndexError(123, "FormatIndexError Error with %s!", "vargs");
 				ASSERT(!serr_get_error().empty());
 
 				const auto& rjroot = json_state.rjdoc.GetObject();
@@ -756,7 +746,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 					if(mitr == rjroot.MemberEnd()) return -1;
 
 					// put it in the wrapper for good errors.
-					JsonMemberScope test_object(mitr, json_state);
+					JsonMemberReader test_object(mitr, json_state);
 					const auto& rjobject = mitr->value.GetObject();
 
 					// things that don't exist
@@ -817,7 +807,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						// auto
 						mitr = json_state.CheckMember(rjobject, key_object_array, rj::kArrayType);
 						if(mitr == rjobject.MemberEnd()) return -1;
-						JsonMemberScope test_array(mitr, json_state);
+						JsonMemberReader test_array(mitr, json_state);
 						const auto& rjarray = mitr->value.GetArray();
 						{
 							slogf(
@@ -874,7 +864,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 					// array of objects
 					auto mitr = json_state.CheckMember(rjroot, key_array, rj::kArrayType);
 					if(mitr == rjroot.MemberEnd()) return -1;
-					JsonMemberScope test_array(mitr, json_state);
+					JsonMemberReader test_array(mitr, json_state);
 
 					const auto& rjarray = mitr->value.GetArray();
 
@@ -923,7 +913,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 						{
 							auto* vitr = json_state.CheckIndex(rjarray, 0, rj::kObjectType);
 							if(vitr == NULL) return -1;
-							JsonIndexScope test_object2(0, json_state);
+							JsonIndexReader test_object2(0, json_state);
 							const auto& rjobject2 = vitr->GetObject();
 
 							// things that don't exist

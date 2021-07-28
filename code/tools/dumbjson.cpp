@@ -37,9 +37,13 @@ const char* rj_string(const rj::Value& value)
 		{
 			return "Uint";
 		}
-		else
+		else if(value.IsInt64())
 		{
-			return "64bit number probably";
+			return "Int64";
+		}
+		else if(value.IsUint64())
+		{
+			return "Uint64";
 		}
 	}
 	return "Unknown";
@@ -359,7 +363,8 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 					return false;
 				}
 
-				if(pos == last){
+				if(pos == last)
+				{
 					break;
 				}
 
@@ -469,7 +474,8 @@ bool JsonState::open_string(
 				return false;
 			}
 
-			if(pos == last){
+			if(pos == last)
+			{
 				break;
 			}
 
@@ -547,37 +553,42 @@ void JsonState::clear()
 	json_unwind_table.clear();
 }
 
-void JsonState::PrintError(const char* message, ...)
+void JsonState::PrintError(const char* message)
+{
+	serrf("Error: at `%s` in `%s`: %s\n", dump_path().c_str(), file_info, message);
+}
+void JsonState::PrintMemberError(const char* key, const char* message)
+{
+	serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, message);
+}
+void JsonState::PrintIndexError(size_t index, const char* message)
+{
+	serrf("Error: at `%s[%zu]` in `%s`: %s\n", dump_path().c_str(), index, file_info, message);
+}
+
+void JsonState::FormatError(const char* format, ...)
 {
 	va_list args;
-	va_start(args, message);
-	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
+	va_start(args, format);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, format, args);
 	va_end(args);
 
 	serrf("Error: at `%s` in `%s`: %s\n", dump_path().c_str(), file_info, buffer.get());
 }
-void JsonState::PrintMemberError(const char* key, const char* message, ...)
+void JsonState::FormatMemberError(const char* key, const char* format, ...)
 {
 	va_list args;
-	va_start(args, message);
-	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
+	va_start(args, format);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, format, args);
 	va_end(args);
 
-	if(json_unwind_table.empty())
-	{
-		// root will include a period before the key...
-		serrf("Error: at `%s` in `%s`: %s\n", key, file_info, buffer.get());
-	}
-	else
-	{
-		serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, buffer.get());
-	}
+	serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, buffer.get());
 }
-void JsonState::PrintIndexError(size_t index, const char* message, ...)
+void JsonState::FormatIndexError(size_t index, const char* format, ...)
 {
 	va_list args;
-	va_start(args, message);
-	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, message, args);
+	va_start(args, format);
+	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, format, args);
 	va_end(args);
 
 	serrf("Error: at `%s[%zu]` in `%s`: %s\n", dump_path().c_str(), index, file_info, buffer.get());
