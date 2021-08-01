@@ -334,6 +334,7 @@ install(TARGETS ${PROJECT_NAME})
 #3.16 black magic install all shared libraries.
 #excluding some system paths, on linux I exlucde paths with /lib 
 #so that only FetchContent binaries are copied (otherwise you get .so hell)
+#warning: this probably will not update stale DLL's, but I should double check.
 if(PORTABLE OR WIN32)
 
     #sets PATH because it includes address sanitizer DLL's... not set by CMAKE_SYSTEM_LIBRARY_PATH
