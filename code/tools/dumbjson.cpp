@@ -559,7 +559,15 @@ void JsonState::PrintError(const char* message)
 }
 void JsonState::PrintMemberError(const char* key, const char* message)
 {
-	serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, message);
+	if(json_unwind_table.empty())
+	{
+		// root will include a period before the key...
+	    serrf("Error: at `%s` in `%s`: %s\n", key, file_info, message);
+    }
+    else
+    {
+        serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, message);
+    }
 }
 void JsonState::PrintIndexError(size_t index, const char* message)
 {
@@ -582,7 +590,15 @@ void JsonState::FormatMemberError(const char* key, const char* format, ...)
 	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, format, args);
 	va_end(args);
 
-	serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, buffer.get());
+    if(json_unwind_table.empty())
+	{
+		// root will include a period before the key...
+	    serrf("Error: at `%s` in `%s`: %s\n", key, file_info, buffer.get());
+    }
+    else
+    {
+        serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, buffer.get());
+    }
 }
 void JsonState::FormatIndexError(size_t index, const char* format, ...)
 {
