@@ -135,6 +135,7 @@ static int test_object_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 static int test_array_1(char* file_memory, size_t& file_size)
 {
 	const char* key_double = "some_double";
@@ -382,6 +383,17 @@ struct data_type
 		return success;
 	}
 
+	template<class Config>
+	bool serialize(Config& ar);
+
+	template<class Config>
+	bool serialize(Config& ar) const
+	{
+		// A hack, but if we are writing, there should be no problem.
+		static_assert(Config::IsWriter);
+		return const_cast<data_type*>(this)->serialize(ar);
+	}
+
 	bool operator==(const data_type& rhs) const
 	{
 		return i == rhs.i && d == rhs.d && s == rhs.s;
@@ -468,6 +480,119 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 
 					if(expected_array[i] != result)
 					{
+						// NOTE: this is bad because I have no idea which value is wrong.
+						json_state.PrintError("incorrect value");
+						return -1;
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+template<class Config>
+bool data_type::serialize(Config& ar)
+{
+	bool success = true;
+	success = success && ar.Member(rj::StringRef(data_key_i), i);
+	success = success && ar.Member(rj::StringRef(data_key_d), d);
+
+	success = success && ar.MemberString(rj::StringRef(data_key_s), s);
+#if 0
+	size_t sz = s.size();
+	success = success && ar.MemberStringRef(rj::StringRef(data_key_s), s.c_str(), &sz);
+	const char* text = "text";
+	success = success && ar.MemberStringRef(rj::StringRef(data_key_s), text);
+#endif
+
+	return success;
+}
+
+static int test_array_of_objects_2(char* file_memory, size_t& file_size)
+{
+	const char* key_array = "test_array";
+
+	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {3, 3.3, "ccc"}};
+
+	{
+		JsonState json_state;
+		json_state.create();
+		{
+			{
+				auto test_array = rj::Value(rj::kArrayType);
+				const auto& rjarray = test_array.GetArray();
+				for(const data_type& test_data : expected_array)
+				{
+					rj::Value object(rj::kObjectType);
+					const auto& rjobject = object.GetObject();
+					JsonConfigWriter data_config(rjobject, json_state);
+					// note the const cast! but this should be fine because I don't modify anything
+					// this is just a problem with not being able to make specific template const.
+					test_data.serialize(data_config);
+					rjarray.PushBack(object, json_state.rjdoc.GetAllocator());
+				}
+				json_state.AddMember(
+					json_state.rjdoc.GetObject(), rj::StringRef(key_array), test_array);
+			}
+		}
+
+		// writing
+		// Unique_RWops file = RWops_OpenFS("path.json", "wb");
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
+		if(!file) return -1;
+		if(!json_state.write_file(file.get())) return -1;
+		int get_file_size;
+		if((get_file_size = file->tell()) == -1) return -1;
+		file_size = get_file_size;
+	}
+	{
+		JsonState json_state;
+
+		// Unique_RWops file = RWops_OpenFS("path.json", "rb");
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
+		if(!file) return -1;
+
+		// this will also check if root is an object.
+		if(!json_state.open_file(file.get())) return -1;
+
+		file.reset();
+
+		{
+			const auto& rjroot = json_state.rjdoc.GetObject();
+			{
+				// get an object, check if it exists and if it's the correct type.
+				auto mitr = json_state.CheckMember(rjroot, key_array, rj::kArrayType);
+				if(mitr == rjroot.MemberEnd()) return -1;
+
+				JsonMemberReader test_array(mitr, json_state);
+				const auto& rjarray = mitr->value.GetArray();
+
+				size_t test_array_size = rjarray.Size();
+
+				if(test_array_size != std::size(expected_array))
+				{
+					json_state.PrintError("array has incorrect size");
+					return -1;
+				}
+
+				for(size_t i = 0; i < test_array_size; ++i)
+				{
+					auto* vitr = json_state.CheckIndex(rjarray, i, rj::kObjectType);
+					if(vitr == NULL) return -1;
+					JsonIndexReader test_object(i, json_state);
+
+					data_type result;
+					const auto& rjobject = vitr->GetObject();
+					JsonConfigReader data_config(rjobject, json_state);
+					if(!result.serialize(data_config))
+					{
+						return -1;
+					}
+
+					if(expected_array[i] != result)
+					{
+						// NOTE: this is bad because I have no idea which value is wrong.
 						json_state.PrintError("incorrect value");
 						return -1;
 					}
@@ -525,6 +650,7 @@ static int test_read_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 static int test_error_1(char* file_memory, size_t& file_size)
 {
 	// just test to see if the correct error is made.
@@ -982,8 +1108,10 @@ int main(int, char**)
 		{"test_object_1", test_object_1},
 		{"test_array_1", test_array_1},
 		{"test_array_of_objects_1", test_array_of_objects_1},
+		{"test_array_of_objects_2", test_array_of_objects_2},
 		{"test_read_1", test_read_1},
-		{"test_error_1", test_error_1}};
+		{"test_error_1", test_error_1}
+	};
 
 	for(auto& job : test_jobs)
 	{

@@ -12,8 +12,6 @@ namespace rj = rapidjson;
 // This API is explosive, which is a feature.
 // If you use the rapidjson API improperly, it will trigger an ASSERT.
 
-class JsonMemberReader;
-class JsonIndexReader;
 class RWops;
 
 extern const char* g_kTypeNames[];
@@ -122,7 +120,6 @@ class JsonState : nocopy
 		return NULL;
 	}
 
-	// will search for the member before setting it.
 	template<class T, class K>
 	void SetMember(const rj::Value::Object& object, K&& key, T&& value)
 	{
@@ -291,6 +288,9 @@ class JsonMemberReader : nocopy
 	size_t stack_level;
 #endif // MYDEBUG
 
+	// MemberIterator is 8 bytes, it's an iterator, don't reference it
+	// (but the compiler is smart about this, inlining would make no difference)
+	// NOLINTNEXTLINE(performance-unnecessary-value-param)
 	JsonMemberReader(rj::Value::MemberIterator mitr, JsonState& json_state)
 	: json_unwind_table(&json_state.json_unwind_table)
 #ifdef MYDEBUG
@@ -362,5 +362,115 @@ class JsonIndexReader : nocopy
 	~JsonIndexReader()
 	{
 		finish();
+	}
+};
+
+// These 2 classes are for implementing the archive pattern
+// by using templates to combine reading and writing.
+// This is purely for Key Value pairs (no arrays, or objects).
+// RapidJson offers an Archiver example, and that would be much
+// more optimized compared to this, especially in terms of writing speed.
+// but this is designed to work with DOM, and preserving comments.
+// so you could have one section that acts like a "JsonConfig",
+// and parse the rest using manual RapidJson (because of DOM dependance)
+template<bool Const, class ValueT>
+class JsonConfigReader
+{
+  public:
+	enum
+	{
+		IsReader = 1,
+		IsWriter = 0
+	};
+	JsonState& state;
+	const rj::GenericObject<Const, ValueT>& object;
+
+	explicit JsonConfigReader(const rj::GenericObject<Const, ValueT>& object_, JsonState& state_)
+	: state(state_)
+	, object(object_)
+	{
+	}
+
+	template<class K, class V>
+	bool Member(K&& key, V&& value)
+	{
+		return state.GetMember(object, key, value);
+	}
+
+	// std::string will always copy.
+	template<class K>
+	bool MemberString(K&& key, std::basic_string<typename ValueT::Ch>& value)
+	{
+		auto str_mitr = state.CheckMember(object, key, rj::kStringType);
+		if(str_mitr == object.MemberEnd())
+		{
+			return false;
+		}
+		value = std::string(str_mitr->value.GetString(), str_mitr->value.GetStringLength());
+		return true;
+	}
+
+	template<class K>
+	bool MemberStringRef(K&& key, typename ValueT::Ch* value, size_t* size = NULL)
+	{
+		auto str_mitr = state.CheckMember(object, key, rj::kStringType);
+		if(str_mitr == object.MemberEnd())
+		{
+			return false;
+		}
+		value = str_mitr->value.GetString();
+		if(size != NULL)
+		{
+			*size = str_mitr->value.GetStringLength();
+		}
+		return true;
+	}
+};
+
+template<bool Const, class ValueT>
+class JsonConfigWriter
+{
+  public:
+	enum
+	{
+		IsReader = 0,
+		IsWriter = 1
+	};
+	JsonState& state;
+	const rj::GenericObject<Const, ValueT>& object;
+
+	explicit JsonConfigWriter(const rj::GenericObject<Const, ValueT>& object_, JsonState& state_)
+	: state(state_)
+	, object(object_)
+	{
+	}
+
+	template<class K, class V>
+	bool Member(const K& key, const V& value)
+	{
+		state.SetMember(object, key, value);
+		return true;
+	}
+
+	// std::string will always copy.
+	template<class K>
+	bool MemberString(const K& key, const std::basic_string<typename ValueT::Ch>& value)
+	{
+		state.SetMember(object, key, rj::Value().SetString(value, state.rjdoc.GetAllocator()));
+		return true;
+	}
+
+	template<class K>
+	bool MemberStringRef(const K& key, const typename ValueT::Ch* value, const size_t* size = NULL)
+	{
+		if(size == NULL)
+		{
+			state.SetMember(object, key, rj::StringRef(value));
+		}
+		else
+		{
+			state.SetMember(object, key, rj::StringRef(value, *size));
+		}
+		return true;
 	}
 };

@@ -261,6 +261,7 @@ inline void PutN(RWops_JsonWriteStream& stream, char c, size_t n)
 }
 RAPIDJSON_NAMESPACE_END
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 {
 	ASSERT(file != NULL);
@@ -562,12 +563,12 @@ void JsonState::PrintMemberError(const char* key, const char* message)
 	if(json_unwind_table.empty())
 	{
 		// root will include a period before the key...
-	    serrf("Error: at `%s` in `%s`: %s\n", key, file_info, message);
-    }
-    else
-    {
-        serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, message);
-    }
+		serrf("Error: at `%s` in `%s`: %s\n", key, file_info, message);
+	}
+	else
+	{
+		serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, message);
+	}
 }
 void JsonState::PrintIndexError(size_t index, const char* message)
 {
@@ -590,15 +591,15 @@ void JsonState::FormatMemberError(const char* key, const char* format, ...)
 	std::unique_ptr<char[]> buffer = unique_vasprintf(NULL, format, args);
 	va_end(args);
 
-    if(json_unwind_table.empty())
+	if(json_unwind_table.empty())
 	{
 		// root will include a period before the key...
-	    serrf("Error: at `%s` in `%s`: %s\n", key, file_info, buffer.get());
-    }
-    else
-    {
-        serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, buffer.get());
-    }
+		serrf("Error: at `%s` in `%s`: %s\n", key, file_info, buffer.get());
+	}
+	else
+	{
+		serrf("Error: at `%s.%s` in `%s`: %s\n", dump_path().c_str(), key, file_info, buffer.get());
+	}
 }
 void JsonState::FormatIndexError(size_t index, const char* format, ...)
 {
