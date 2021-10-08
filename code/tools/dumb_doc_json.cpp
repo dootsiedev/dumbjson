@@ -1,5 +1,5 @@
 #include "../global.h"
-#include "dumbjson.h"
+#include "dumb_doc_json.h"
 
 #include "RWops.h"
 

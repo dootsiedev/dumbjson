@@ -1,8 +1,12 @@
 #include "global.h"
+#include "tools/dumb_stream_json.h"
 #include "tools/RWops.h"
-#include "tools/dumbjson.h"
+#include "tools/dumb_doc_json.h"
+#include "3rd_party/utf8/core.hpp"
 
+#include <cstdint>
 #include <limits>
+#include <rapidjson/prettywriter.h>
 
 static int test_object_1(char* file_memory, size_t& file_size)
 {
@@ -384,15 +388,18 @@ struct data_type
 	}
 
 	template<class Config>
-	bool serialize(Config& ar);
+	bool serialize(Config&& ar);
 
 	template<class Config>
-	bool serialize(Config& ar) const
+	bool serialize(Config&& ar) const
 	{
 		// A hack, but if we are writing, there should be no problem.
 		static_assert(Config::IsWriter);
 		return const_cast<data_type*>(this)->serialize(ar);
 	}
+
+	template<class Archive>
+	void kson_serialize(Archive& ar);
 
 	bool operator==(const data_type& rhs) const
 	{
@@ -492,7 +499,7 @@ static int test_array_of_objects_1(char* file_memory, size_t& file_size)
 }
 
 template<class Config>
-bool data_type::serialize(Config& ar)
+bool data_type::serialize(Config&& ar)
 {
 	bool success = true;
 	success = success && ar.Member(rj::StringRef(data_key_i), i);
@@ -526,10 +533,7 @@ static int test_array_of_objects_2(char* file_memory, size_t& file_size)
 				{
 					rj::Value object(rj::kObjectType);
 					const auto& rjobject = object.GetObject();
-					JsonConfigWriter data_config(rjobject, json_state);
-					// note the const cast! but this should be fine because I don't modify anything
-					// this is just a problem with not being able to make specific template const.
-					test_data.serialize(data_config);
+					test_data.serialize(JsonConfigWriter(rjobject, json_state));
 					rjarray.PushBack(object, json_state.rjdoc.GetAllocator());
 				}
 				json_state.AddMember(
@@ -549,6 +553,10 @@ static int test_array_of_objects_2(char* file_memory, size_t& file_size)
 	{
 		JsonState json_state;
 
+		// this will also check if root is an object.
+		if(!json_state.open_string(file_memory, file_size)) return -1;
+
+#if 0
 		// Unique_RWops file = RWops_OpenFS("path.json", "rb");
 		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
 		if(!file) return -1;
@@ -557,7 +565,7 @@ static int test_array_of_objects_2(char* file_memory, size_t& file_size)
 		if(!json_state.open_file(file.get())) return -1;
 
 		file.reset();
-
+#endif
 		{
 			const auto& rjroot = json_state.rjdoc.GetObject();
 			{
@@ -584,8 +592,7 @@ static int test_array_of_objects_2(char* file_memory, size_t& file_size)
 
 					data_type result;
 					const auto& rjobject = vitr->GetObject();
-					JsonConfigReader data_config(rjobject, json_state);
-					if(!result.serialize(data_config))
+					if(!result.serialize(JsonConfigReader(rjobject, json_state)))
 					{
 						return -1;
 					}
@@ -600,6 +607,242 @@ static int test_array_of_objects_2(char* file_memory, size_t& file_size)
 			}
 		}
 	}
+	return 0;
+}
+
+template<class Archive>
+void data_type::kson_serialize(Archive& ar)
+{
+	ar.StartObject();
+	ar.Key("i");
+	ar.Int(i);
+	ar.Key("d");
+	ar.Double(d);
+	ar.Key("s");
+	// ar.String(s);
+	// this wont check for control keys, I expect.
+	// you can use \xa0\xa1 to check
+	// rapidjson supports this internally with \xa0\xa1
+	size_t test = 3;
+	ar.String_CB(
+		[this](const char* str, uint16_t size) {
+			ASSERT(utf8::is_valid(str, str + size));
+			s = std::string(str, size);
+			return true;
+		},
+		s,
+		test);
+	ar.EndObject();
+}
+
+template<class Archive>
+static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
+{
+	ar.StartObject();
+
+	// this is a drawback of using stream json,
+	// which is the requirement of manually sized arrays.
+	ar.Key("size");
+	uint16_t test_array_size = std::size(data);
+	ar.Uint16(test_array_size);
+
+	if(Archive::IsReader)
+	{
+		data.resize(test_array_size);
+	}
+
+	ar.Key("array");
+	ar.StartArray();
+	for(data_type& entry : data)
+	{
+		entry.kson_serialize(ar);
+	}
+	ar.EndArray();
+	ar.EndObject();
+}
+
+static int test_array_of_objects_3(char* file_memory, size_t& file_size)
+{
+	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {3, -1, ""}};
+	{
+		rj::StringBuffer sb;
+		JsonWriter<rj::StringBuffer, rj::PrettyWriter<rj::StringBuffer>> ar(sb);
+
+		// copy the contents in.
+		std::vector<data_type> dynamic_array(
+			expected_array, expected_array + std::size(expected_array));
+
+		kson_array_of_objects(ar, dynamic_array);
+
+		// some sort of error got printed,
+		// most likely a string size error.
+		if(serr_check_error())
+		{
+			serr("error writing json\n");
+			return -1;
+		}
+
+		// JsonWriter .finish() does one job, which is check if the json is complete.
+		// I want to put finish() into kson_array_of_objects,
+		// but it's better to check serr before checking this.
+		if(!ar.finish())
+		{
+			serr("failed to write a complete json file\n");
+			return -1;
+		}
+
+		file_size = (sb.GetLength() > file_size - 1 ? file_size - 1 : sb.GetLength());
+		memcpy(file_memory, sb.GetString(), file_size);
+		file_memory[file_size] = '\0';
+	}
+	{
+		// rj::StringStream is dangerous to use with BinaryReader due to buffer overrun.
+		KsonMemoryStream ss(file_memory, file_memory + file_size);
+
+		JsonReader ar(ss);
+
+		std::vector<data_type> dynamic_array;
+
+		
+		kson_array_of_objects(ar, dynamic_array);
+
+		if(ar.reader.HasParseError())
+		{
+			serrf(
+				"json error: %s, offset: %zu\n",
+				GetParseError_En(ar.reader.GetParseErrorCode()),
+				ar.reader.GetErrorOffset());
+			//TODO (dootsie): show line location
+			return -1;
+		}
+
+		//I could use finish() but this is more descriptive.
+		if(ar.error)
+		{
+			serr("failed to parse json\n");
+			return -1;
+		}
+		
+		if(!ar.reader.IterativeParseComplete())
+		{
+			serr("incomplete json\n");
+			return -1;
+		}
+
+		// some sort of error got printed.
+		if(serr_check_error())
+		{
+			serr("uncaught error\n");
+			return -1;
+		}
+
+		ASSERT(dynamic_array.size() == std::size(expected_array));
+		for(size_t i = 0; i < std::size(expected_array); ++i)
+		{
+			ASSERT(dynamic_array.at(i) == expected_array[i]);
+		}
+	}
+
+	//
+	// BINARY ============================================
+	//
+
+	{
+		// rj::StringBuffer sb;
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
+		if(!file) return -1;
+		char write_buffer[1000];
+		KsonCB_WriteStream sb(
+			[&file](char* buf, size_t write_num) -> size_t {
+				return file->write(buf, 1, write_num);
+			},
+			write_buffer,
+			sizeof(write_buffer));
+		BinaryWriter ar(sb);
+
+		// copy the contents in.
+		std::vector<data_type> dynamic_array(
+			expected_array, expected_array + std::size(expected_array));
+
+		kson_array_of_objects(ar, dynamic_array);
+
+		// note that ar.finish() does absolutely nothing for BinaryWriter
+
+		if(serr_check_error())
+		{
+			serr("error writing binary\n");
+			return -1;
+		}
+		sb.Flush();
+		int get_file_size;
+		if((get_file_size = file->tell()) == -1) return -1;
+		file_size = get_file_size;
+
+		// file_size = (sb.GetLength() > file_size - 1 ? file_size - 1 : sb.GetLength());
+		// memcpy(file_memory, sb.GetString(), file_size);
+		// file_memory[file_size] = '\0';
+	}
+	{
+		// rj::StringStream is dangerous to use with BinaryReader due to buffer overrun.
+		// KsonMemoryStream ss(file_memory, file_memory + file_size);
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
+		if(!file) return -1;
+		char read_buffer[1000];
+		KsonCB_ReadStream ss(
+			[&file](char* buf, size_t read_num) -> size_t { return file->read(buf, 1, read_num); },
+			read_buffer,
+			sizeof(read_buffer));
+
+		BinaryReader ar(ss);
+
+		std::vector<data_type> dynamic_array;
+
+		kson_array_of_objects(ar, dynamic_array);
+
+		// this will NOT check if all the data has been read,
+		// this only detects if an error was printed.
+		if(!ar.finish())
+		{
+			// note that printing the offset by ss.Tell() is pointless
+			// because it will not stop on the first error.
+			serr("caught error\n");
+			return -1;
+		}
+
+		// some sort of error got printed.
+		if(serr_check_error())
+		{
+			serr("uncaught error\n");
+			return -1;
+		}
+
+		// For KsonMemoryStream ss.Tell() will go beyond the max size of the file
+		// if you continue to read, but it will not access the data (gives zeros)
+		// Unlike JsonReader, BinaryReader will overrun the buffer.
+		if(ss.Tell() != file_size)
+		{
+			serrf("mismatching file end, size: %zu cursor: %zu\n", file_size, ss.Tell());
+			return -1;
+		}
+
+		if(!file->good())
+		{
+			serrf("file in bad state: %s\n", file->stream_info);
+			return -1;
+		}
+
+		ASSERT(dynamic_array.size() == std::size(expected_array));
+		for(size_t i = 0; i < std::size(expected_array); ++i)
+		{
+			ASSERT(dynamic_array.at(i) == expected_array[i]);
+		}
+	}
+#if 1
+	std::string tmp = base64_encode(file_memory, file_size);
+	file_size = (tmp.size() > file_size - 1 ? file_size - 1 : tmp.size());
+	memcpy(file_memory, tmp.c_str(), file_size);
+	file_memory[file_size] = '\0';
+#endif
 	return 0;
 }
 
@@ -1109,9 +1352,9 @@ int main(int, char**)
 		{"test_array_1", test_array_1},
 		{"test_array_of_objects_1", test_array_of_objects_1},
 		{"test_array_of_objects_2", test_array_of_objects_2},
+		{"test_array_of_objects_3", test_array_of_objects_3},
 		{"test_read_1", test_read_1},
-		{"test_error_1", test_error_1}
-	};
+		{"test_error_1", test_error_1}};
 
 	for(auto& job : test_jobs)
 	{

@@ -317,13 +317,14 @@ endif()
 # RAPIDJSON
 #
 
-#this only works if you use cmake to install into a prefix.
-#I prefer to just copy the include directory into the prefix.
-#so I don't make this required.
-find_package(RapidJSON CONFIG)
-if(RapidJSON-NOTFOUND)
-    message(WARNING "rapidjson was not found, assuming you just copied the headers.")
-endif()
+find_package(RapidJSON CONFIG REQUIRED)
+target_include_directories(${PROJECT_NAME} PRIVATE ${RapidJSON_INCLUDE_DIRS})
+
+#I use a really new version of rapidjson, so I can't copy the include files
+#because then the system packages would override the includes...
+#if(RapidJSON-NOTFOUND)
+#    message(WARNING "rapidjson was not found, assuming you just copied the headers.")
+#endif()
 
 #
 # install
