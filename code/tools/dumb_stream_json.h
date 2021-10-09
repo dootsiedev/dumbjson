@@ -111,7 +111,7 @@ bool serialize_data_group(Archive& ar, std::vector<data_type>& group_data)
 	std::vector<data_type> output;
 
 	if(!kson_read_json_memory(
-			[&output](auto& ar) -> bool {
+			[&](auto& ar) -> bool {
 				return serialize_data_group(ar, output);
 			},
 			contents.c_str(),
