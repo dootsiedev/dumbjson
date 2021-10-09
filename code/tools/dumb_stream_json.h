@@ -33,6 +33,99 @@
 //-clean up error messages (maybe make every message include what class and function was called?)
 //-I am noticing that binary bloat can be somewhat of a problem, but hopefully it doesn't scale.
 
+// example
+#if 0
+//shared simple serialization:
+//creates: {"i":N, "d":N}
+template<class Archive>
+void serialize_data_type(Archive& ar, data_type& data)
+{
+	ar.StartObject();
+	ar.Key("i");
+	ar.Int(data.i);
+	ar.Key("d");
+	ar.Double(data.d);
+	ar.EndObject();
+}
+
+//shared dynamic arrays:
+//creates {"size":N, "array":[...]}
+template<class Archive>
+bool serialize_data_group(Archive& ar, std::vector<data_type>& group_data)
+{
+	ar.StartObject();
+	ar.Key("size");
+	uint16_t size = std::size(group_data);
+	
+	ar.Uint16(size);
+
+	//this could be put into Uint16_CB as well,
+	//but that only checks for the reader.
+	if(size > 2)
+	{
+		serr("error\n");
+		return false;
+	}
+
+	if(Archive::IsReader)
+	{
+		//the reader needs to make space for the
+		//pieces to be read.
+		data.resize(size);
+	}
+
+	ar.Key("array");
+	ar.StartArray();
+	for(data_type& entry : group_data)
+	{
+		serialize_data_type(ar, entry);
+	}
+	ar.EndArray();
+	ar.EndObject();
+}
+
+//writer setup:
+{
+	//fill the input with data
+	std::vector<data_type> input = {{1,1.1}, {2,2.2}};
+
+	//this stores the result.
+	rj::StringBuffer sb;
+
+	//replace "json_memory" with "binary" instead of "json"
+	//or "stream" (RWops*) instead of "memory".
+	if(!kson_write_json_memory(
+			[&](auto& ar) -> bool {
+				return serialize_data_group(ar, input);
+			},
+			sb,
+			"store_data_group"))
+	{
+		//error!
+	}
+	std::string contents(sb.GetString(), sb.GetLength());
+}
+
+//reader setup:
+{
+	std::vector<data_type> output;
+
+	if(!kson_read_json_memory(
+			[&output](auto& ar) -> bool {
+				return serialize_data_group(ar, output);
+			},
+			contents.c_str(),
+			contents.size(),
+			"load_data_group"))
+	{
+		//error!
+	}
+
+	//use output
+}
+
+#endif
+
 #include <cmath>
 #define RAPIDJSON_ASSERT ASSERT
 #define RAPIDJSON_HAS_STDSTRING 1
