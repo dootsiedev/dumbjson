@@ -11,7 +11,7 @@
 
 const char* g_kTypeNames[] = {"Null", "False", "True", "Object", "Array", "String", "Number"};
 
-const char* g_unspecified_filename_default = "<unspecified>";
+static const char* g_unspecified_filename_default = "<unspecified>";
 
 const char* rj_string(const rj::Value& value)
 {

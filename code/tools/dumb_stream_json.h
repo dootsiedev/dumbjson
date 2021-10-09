@@ -30,8 +30,11 @@
 // but a backtrace from a debugger has much more information (include a trace in the message?),
 // but this error SHOULD only be a programmer error (why was the string that long?)
 //-The example is overcomplicated, maybe write a convenience wrapper that "just works"?
+//-clean up error messages (maybe make every message include what class and function was called?)
+//-I am noticing that binary bloat can be somewhat of a problem, but hopefully it doesn't scale.
 
 #include "SDL_stdinc.h"
+#include <cstdio>
 #define RAPIDJSON_ASSERT ASSERT
 #define RAPIDJSON_HAS_STDSTRING 1
 
@@ -43,8 +46,11 @@
 
 //#include <rapidjson/rapidjson.h>
 #include <rapidjson/reader.h>
-// you generally always want to check errors.
+
+// needed for the convenience functions
 #include <rapidjson/error/en.h>
+#include <rapidjson/prettywriter.h>
+#include "RWops.h"
 
 namespace rj = rapidjson;
 
@@ -158,12 +164,13 @@ inline std::string base64_encode(const void* src, size_t len)
 // NOLINTEND
 
 template<class Callback>
-class MyBoolHandler : public rj::BaseReaderHandler<rj::UTF8<>, MyBoolHandler<Callback>>
+class internal_bool_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_bool_json_handler<Callback>>
 {
   public:
 	Callback call;
 
-	explicit MyBoolHandler(Callback cb)
+	explicit internal_bool_json_handler(Callback cb)
 	: call(cb)
 	{
 	}
@@ -181,13 +188,13 @@ class MyBoolHandler : public rj::BaseReaderHandler<rj::UTF8<>, MyBoolHandler<Cal
 };
 
 template<class Callback>
-class internal_int_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_int_json_reader<Callback>>
+class internal_int_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_int_json_handler<Callback>>
 {
   public:
 	Callback call;
 
-	explicit internal_int_json_reader(Callback cb)
+	explicit internal_int_json_handler(Callback cb)
 	: call(cb)
 	{
 	}
@@ -212,13 +219,13 @@ class internal_int_json_reader
 };
 
 template<class Callback>
-class internal_uint_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_uint_json_reader<Callback>>
+class internal_uint_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_uint_json_handler<Callback>>
 {
   public:
 	Callback call;
 
-	explicit internal_uint_json_reader(Callback cb)
+	explicit internal_uint_json_handler(Callback cb)
 	: call(cb)
 	{
 	}
@@ -234,13 +241,13 @@ class internal_uint_json_reader
 };
 
 template<class Callback>
-class internal_int64_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_int64_json_reader<Callback>>
+class internal_int64_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_int64_json_handler<Callback>>
 {
   public:
 	Callback call;
 
-	explicit internal_int64_json_reader(Callback cb)
+	explicit internal_int64_json_handler(Callback cb)
 	: call(cb)
 	{
 	}
@@ -276,13 +283,13 @@ class internal_int64_json_reader
 };
 
 template<class Callback>
-class internal_uint64_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_uint64_json_reader<Callback>>
+class internal_uint64_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_uint64_json_handler<Callback>>
 {
   public:
 	Callback call;
 
-	explicit internal_uint64_json_reader(Callback cb)
+	explicit internal_uint64_json_handler(Callback cb)
 	: call(cb)
 	{
 	}
@@ -302,13 +309,13 @@ class internal_uint64_json_reader
 };
 
 template<class Callback>
-class internal_double_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_double_json_reader<Callback>>
+class internal_double_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_double_json_handler<Callback>>
 {
   public:
 	Callback call;
 
-	explicit internal_double_json_reader(Callback cb)
+	explicit internal_double_json_handler(Callback cb)
 	: call(cb)
 	{
 	}
@@ -335,13 +342,13 @@ class internal_double_json_reader
 };
 
 template<class T, class Callback>
-class internal_uint_promote_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_uint_promote_json_reader<T, Callback>>
+class internal_uint_promote_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_uint_promote_json_handler<T, Callback>>
 {
   public:
 	Callback call;
 
-	explicit internal_uint_promote_json_reader(Callback cb)
+	explicit internal_uint_promote_json_handler(Callback cb)
 	: call(cb)
 	{
 	}
@@ -365,14 +372,14 @@ class internal_uint_promote_json_reader
 };
 
 template<class Callback>
-class internal_string_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_string_json_reader<Callback>>
+class internal_string_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_string_json_handler<Callback>>
 {
   public:
 	Callback call;
 	size_t max_size;
 
-	explicit internal_string_json_reader(Callback cb, size_t max_size_)
+	explicit internal_string_json_handler(Callback cb, size_t max_size_)
 	: call(cb)
 	, max_size(max_size_)
 	{
@@ -394,14 +401,14 @@ class internal_string_json_reader
 };
 
 template<class Callback>
-class internal_data_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_data_json_reader<Callback>>
+class internal_data_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_data_json_handler<Callback>>
 {
   public:
 	Callback call;
 	size_t max_size;
 
-	explicit internal_data_json_reader(Callback cb, size_t max_size_)
+	explicit internal_data_json_handler(Callback cb, size_t max_size_)
 	: call(cb)
 	, max_size(max_size_)
 	{
@@ -424,13 +431,13 @@ class internal_data_json_reader
 };
 
 template<size_t size>
-class internal_key_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_key_json_reader<size>>
+class internal_key_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_key_json_handler<size>>
 {
   public:
 	const char (&s)[size];
 
-	explicit internal_key_json_reader(const char (&s_)[size])
+	explicit internal_key_json_handler(const char (&s_)[size])
 	: s(s_)
 	{
 	}
@@ -445,13 +452,13 @@ class internal_key_json_reader
 		{
 			return true;
 		}
-		serrf("mismatching keys expected: %s, result: %s\n", str, s);
+		serrf("mismatching keys expected: \"%s\", result: \"%s\"\n", str, s);
 		return false;
 	}
 };
 
-class internal_startobject_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_startobject_json_reader>
+class internal_startobject_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_startobject_json_handler>
 {
   public:
 	bool Default()
@@ -465,8 +472,8 @@ class internal_startobject_json_reader
 	}
 };
 
-class internal_endobject_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_endobject_json_reader>
+class internal_endobject_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_endobject_json_handler>
 {
   public:
 	bool Default()
@@ -480,8 +487,8 @@ class internal_endobject_json_reader
 	}
 };
 
-class internal_startarray_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_startarray_json_reader>
+class internal_startarray_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_startarray_json_handler>
 {
   public:
 	bool Default()
@@ -495,8 +502,8 @@ class internal_startarray_json_reader
 	}
 };
 
-class internal_endarray_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_endarray_json_reader>
+class internal_endarray_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_endarray_json_handler>
 {
   public:
 	bool Default()
@@ -510,8 +517,8 @@ class internal_endarray_json_reader
 	}
 };
 
-class internal_null_json_reader
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_null_json_reader>
+class internal_null_json_handler
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_null_json_handler>
 {
   public:
 	bool Default()
@@ -573,20 +580,27 @@ class JsonReader
 		reader.IterativeParseInit();
 	}
 
-	bool finish() const
+	bool good() const
 	{
-		// TODO (dootsie): do i need to make reader get an error for IterativeParseComplete to
-		// signal?
-		return !error && reader.IterativeParseComplete();
+		return !error;
+	}
+
+	bool is_complete() const
+	{
+		return reader.IterativeParseComplete();
 	}
 
 	// null is kinda pointless, maybe placeholder data?
 	void Null()
 	{
 		if(error) return; // preserve error offset.
-		internal_null_json_reader handler;
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_null_json_handler handler;
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -600,9 +614,13 @@ class JsonReader
 	void Bool_CB(Callback cb, bool)
 	{
 		if(error) return; // preserve error offset.
-		MyBoolHandler handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_bool_json_handler handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -615,9 +633,13 @@ class JsonReader
 	void Int_CB(Callback cb, int)
 	{
 		if(error) return; // preserve error offset.
-		internal_int_json_reader handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_int_json_handler handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -630,9 +652,13 @@ class JsonReader
 	void Uint_CB(Callback cb, unsigned)
 	{
 		if(error) return; // preserve error offset.
-		internal_uint_json_reader handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_uint_json_handler handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -645,9 +671,13 @@ class JsonReader
 	void Int64_CB(Callback cb, int64_t)
 	{
 		if(error) return; // preserve error offset.
-		internal_int64_json_reader handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_int64_json_handler handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -660,9 +690,13 @@ class JsonReader
 	void Uint64_CB(Callback cb, uint64_t)
 	{
 		if(error) return; // preserve error offset.
-		internal_uint64_json_reader handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_uint64_json_handler handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -678,9 +712,13 @@ class JsonReader
 	{
 		if(error) return; // preserve error offset.
 		// promote to uint
-		internal_uint_promote_json_reader<uint16_t, Callback> handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_uint_promote_json_handler<uint16_t, Callback> handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -694,9 +732,13 @@ class JsonReader
 	{
 		if(error) return; // preserve error offset.
 		// promote to uint
-		internal_uint_promote_json_reader<uint8_t, Callback> handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_uint_promote_json_handler<uint8_t, Callback> handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -709,9 +751,13 @@ class JsonReader
 	void Double_CB(Callback cb, double)
 	{
 		if(error) return; // preserve error offset.
-		internal_double_json_reader handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_double_json_handler handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -728,14 +774,17 @@ class JsonReader
 		// promote to double
 		// a double to float can lose a significant ammount of resolution.
 		// the rapidjson DOM has a IsLosslessFloat function that I can reference.
-		internal_double_json_reader handler(cb);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_double_json_handler handler(cb);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
 	}
-	// TODO (dootsie): validate utf8?
 	void String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		String_CB(internal_string_setter{str}, {}, max_size);
@@ -745,9 +794,13 @@ class JsonReader
 		Callback cb, std::string_view, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		if(error) return; // preserve error offset.
-		internal_string_json_reader handler{cb, max_size};
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_string_json_handler handler{cb, max_size};
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -762,9 +815,13 @@ class JsonReader
 		Callback cb, std::string_view, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		if(error) return; // preserve error offset.
-		internal_data_json_reader handler(cb, max_size);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_data_json_handler handler(cb, max_size);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -776,9 +833,13 @@ class JsonReader
 	void Key(const char (&str)[i])
 	{
 		if(error) return; // preserve error offset.
-		internal_key_json_reader<i> handler(str);
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_key_json_handler<i> handler(str);
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -787,9 +848,13 @@ class JsonReader
 	void StartObject()
 	{
 		if(error) return; // preserve error offset.
-		internal_startobject_json_reader handler;
-		if(reader.IterativeParseComplete() ||
-		   !reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_startobject_json_handler handler;
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -797,8 +862,13 @@ class JsonReader
 	void EndObject()
 	{
 		if(error) return; // preserve error offset.
-		internal_endobject_json_reader handler;
-		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_endobject_json_handler handler;
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -806,8 +876,13 @@ class JsonReader
 	void StartArray()
 	{
 		if(error) return; // preserve error offset.
-		internal_startarray_json_reader handler;
-		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		internal_startarray_json_handler handler;
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -815,9 +890,13 @@ class JsonReader
 	void EndArray()
 	{
 		if(error) return; // preserve error offset.
-		internal_endarray_json_reader handler;
-		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler) &&
-		   !reader.IterativeParseComplete())
+		internal_endarray_json_handler handler;
+		if(reader.IterativeParseComplete())
+		{
+			serrf("write after complete: %s\n", __func__);
+			error = true;
+		}
+		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
 		}
@@ -841,7 +920,7 @@ class JsonWriter
 	{
 	}
 
-	bool finish() const
+	bool is_complete() const
 	{
 		return writer.IsComplete();
 	}
@@ -919,7 +998,14 @@ class JsonWriter
 	}
 	void Double(double d)
 	{
-		writer.Double(d);
+		// it's possible that NaN or Inf can cause an error.
+		if(!writer.Double(d))
+		{
+			// assert because the message gives no information.
+			// and its the programmers responsibility to not create NANs.
+			ASSERT(false && "failed to write double");
+			serrf("failed to write double: %f\n", d);
+		}
 	}
 	template<class Callback>
 	void Double_CB(Callback, double d)
@@ -929,12 +1015,12 @@ class JsonWriter
 	// float will promote to double.
 	void Float(float d)
 	{
-		writer.Double(d);
+		Double(d);
 	}
 	template<class Callback>
 	void Float_CB(Callback, float d)
 	{
-		Float(d);
+		Double(d);
 	}
 	void String(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
@@ -1020,7 +1106,7 @@ class BinaryReader
 {
   public:
 	StreamReader& reader;
-	bool success = true;
+	bool error = false;
 
 	enum
 	{
@@ -1032,9 +1118,9 @@ class BinaryReader
 	{
 	}
 
-	bool finish() const
+	bool good() const
 	{
-		return success;
+		return !error;
 	}
 
 	// null is kinda pointless, maybe placeholder data?
@@ -1047,7 +1133,7 @@ class BinaryReader
 	template<class Callback>
 	void Bool_CB(Callback cb, bool)
 	{
-		success = success && cb(reader.Take());
+		error = error || !cb(reader.Take());
 	}
 	void Int(int& i)
 	{
@@ -1064,7 +1150,7 @@ class BinaryReader
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint32_t>(reader.Take());
-		success = success && cb(static_cast<int32_t>(tmp));
+		error = error || !cb(static_cast<int32_t>(tmp));
 	}
 	void Uint(unsigned& u)
 	{
@@ -1081,7 +1167,7 @@ class BinaryReader
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint32_t>(reader.Take());
-		success = success && cb(tmp);
+		error = error || !cb(tmp);
 	}
 	void Int64(int64_t& i)
 	{
@@ -1106,7 +1192,7 @@ class BinaryReader
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		success = success && cb(static_cast<int64_t>(tmp));
+		error = error || !cb(static_cast<int64_t>(tmp));
 	}
 	void Uint64(uint64_t& u)
 	{
@@ -1131,7 +1217,7 @@ class BinaryReader
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		success = success && cb(tmp);
+		error = error || !cb(tmp);
 	}
 	// shorts and bytes in json are promoted.
 	// I don't use signed numbers, if you need them, then implement it.
@@ -1146,7 +1232,7 @@ class BinaryReader
 	{
 		uint16_t tmp = static_cast<uint16_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		success = success && cb(tmp);
+		error = error || !cb(tmp);
 	}
 	void Uint8(uint8_t& u)
 	{
@@ -1155,7 +1241,7 @@ class BinaryReader
 	template<class Callback>
 	void Uint8_CB(Callback cb, uint8_t)
 	{
-		success = success && cb(static_cast<uint8_t>(reader.Take()));
+		error = error || !cb(static_cast<uint8_t>(reader.Take()));
 	}
 	void Double(double& d)
 	{
@@ -1173,7 +1259,7 @@ class BinaryReader
 	{
 		uint64_t tmp;
 		Uint64(tmp);
-		success = success && cb(*reinterpret_cast<double*>(&tmp));
+		error = error || !cb(*reinterpret_cast<double*>(&tmp));
 	}
 	void Float(float& d)
 	{
@@ -1186,12 +1272,12 @@ class BinaryReader
 	{
 		uint32_t tmp;
 		Uint(tmp);
-		success = success && cb(*reinterpret_cast<float*>(&tmp));
+		error = error || !cb(*reinterpret_cast<float*>(&tmp));
 	}
 	void String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		uint16_t size;
-		if(success)
+		if(!error)
 		{
 			Uint16(size);
 			if(size <= max_size)
@@ -1205,7 +1291,7 @@ class BinaryReader
 			}
 			else
 			{
-				success = false;
+				error = true;
 				serrf("string too large, max: %zu result: %" PRIu16 "\n", max_size, size);
 			}
 		}
@@ -1219,7 +1305,7 @@ class BinaryReader
 		char buf[std::numeric_limits<uint16_t>::max()];
 		uint16_t size;
 
-		if(success)
+		if(!error)
 		{
 			Uint16(size);
 			if(size <= max_size)
@@ -1228,11 +1314,11 @@ class BinaryReader
 				{
 					buf[i] = reader.Take();
 				}
-				success = success && cb(buf, size);
+				error = error || !cb(buf, size);
 			}
 			else
 			{
-				success = false;
+				error = true;
 				serrf("string too large, max: %zu result: %" PRIu16 "\n", max_size, size);
 			}
 		}
@@ -1275,10 +1361,6 @@ class BinaryWriter
 	explicit BinaryWriter(WriteStream& output_)
 	: output(output_)
 	{
-	}
-	bool finish() const
-	{
-		return true;
 	}
 
 	// null is kinda pointless, maybe placeholder data?
@@ -1514,7 +1596,6 @@ class KsonCB_ReadStream
   public:
 	typedef char Ch; //!< Character type (byte).
 
-	
 	KsonCB_ReadStream(Callback cb_, char* buffer, size_t bufferSize)
 	: cb(cb_)
 	, buffer_(buffer)
@@ -1665,3 +1746,465 @@ class KsonCB_WriteStream
 	char* bufferEnd_;
 	char* current_;
 };
+
+template<class Reader, size_t max_line_length = 1024>
+void print_json_error(Reader& reader, size_t offset)
+{
+	char buffer[max_line_length];
+	size_t line_n = 0;
+	size_t count = 0;
+	size_t line_start = 0;
+	char* pos = buffer;
+	char* end = buffer + max_line_length;
+	while(true)
+	{
+		if(pos < end)
+		{
+			*pos = reader.Take();
+			++count;
+			if(*pos == '\n')
+			{
+				if(offset <= count)
+				{
+					break;
+				}
+				++line_n;
+				pos = buffer;
+				line_start = count;
+			}
+			else if(*pos == '\0')
+			{
+				break;
+			}
+			else
+				++pos;
+		}
+		else
+		{
+			char c = reader.Take();
+			++count;
+			if(c == '\n')
+			{
+				if(offset <= count)
+				{
+					break;
+				}
+				++line_n;
+				pos = buffer;
+				line_start = count;
+			}
+			else if(c == '\0')
+			{
+				break;
+			}
+		}
+	}
+	if(offset <= count)
+	{
+		// clear any control values (mainly for windows \r\n)
+		char* line_end = std::remove_if(buffer, pos, [](unsigned char _1) {
+			return _1 != '\n' && _1 != '\t' && (_1 < 32 || _1 == 127);
+		});
+
+		*line_end = '\0';
+
+		// tabs to spaces because it makes the column index clearer.
+		std::replace(buffer, line_end, '\t', ' ');
+
+		serrf(
+			"Line: %zu\n"
+			"Col: %zu\n"
+			">>>%s\n",
+			line_n + 1,
+			offset - line_start + 1,
+			buffer);
+	}
+	else
+	{
+		ASSERT(false && "unreachable");
+	}
+}
+
+// callback has a signature <bool(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a JsonReader<>
+template<class Callback>
+bool kson_read_json_memory(
+	Callback cb, const char* file_memory, size_t file_size, const char* info = "<unspecified>")
+{
+	ASSERT(file_memory != NULL);
+	ASSERT(info != NULL);
+
+	KsonMemoryStream stream(file_memory, file_memory + file_size);
+
+	JsonReader ar(stream);
+
+	bool cb_return = cb(ar);
+
+	if(ar.reader.HasParseError())
+	{
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Error: %s\n"
+			"Offset: %zu\n",
+			info,
+			GetParseError_En(ar.reader.GetParseErrorCode()),
+			ar.reader.GetErrorOffset());
+		// rewind the stream
+		stream = KsonMemoryStream(file_memory, file_memory + file_size);
+		print_json_error(stream, ar.reader.GetErrorOffset());
+
+		return false;
+	}
+
+	// if there was an error expected to be printed
+	if(!ar.good())
+	{
+		size_t offset = stream.Tell();
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Offset: %zu\n",
+			info,
+			offset);
+		// rewind the stream
+		stream = KsonMemoryStream(file_memory, file_memory + file_size);
+		print_json_error(stream, ar.reader.GetErrorOffset());
+		return false;
+	}
+
+	if(!cb_return)
+	{
+		serrf("Failed to parse json: `%s`\n", info);
+		return false;
+	}
+
+	// some sort of error got printed.
+	if(serr_check_error())
+	{
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Error: uncaught serr error\n",
+			info);
+		return false;
+	}
+
+	if(!ar.is_complete())
+	{
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Error: incomplete json\n",
+			info);
+		return false;
+	}
+	return true;
+}
+
+// callback has a signature <bool(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a JsonReader<>
+template<class Callback>
+bool kson_read_json_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+{
+	ASSERT(info != NULL);
+	ASSERT(file != NULL);
+	ASSERT(file->good());
+
+	char read_buffer[1000];
+	KsonCB_ReadStream stream(
+		[file](char* buf, size_t read_num) -> size_t { return file->read(buf, 1, read_num); },
+		read_buffer,
+		sizeof(read_buffer));
+
+	JsonReader ar(stream);
+
+	bool cb_return = cb(ar);
+
+	if(ar.reader.HasParseError())
+	{
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Error: %s\n"
+			"Offset: %zu\n",
+			info,
+			GetParseError_En(ar.reader.GetParseErrorCode()),
+			ar.reader.GetErrorOffset());
+		// rewind the stream
+		if(file->seek(0, SEEK_SET) >= 0)
+		{
+			print_json_error(stream, ar.reader.GetErrorOffset());
+		}
+		return false;
+	}
+
+	// if there was an error expected to be printed
+	if(!ar.good())
+	{
+		size_t offset = stream.Tell();
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Offset: %zu\n",
+			info,
+			offset);
+		// rewind the stream
+		if(file->seek(0, SEEK_SET) >= 0)
+		{
+			print_json_error(stream, ar.reader.GetErrorOffset());
+		}
+		return false;
+	}
+
+	if(!cb_return)
+	{
+		serrf("Failed to parse json: `%s`\n", info);
+		return false;
+	}
+
+	// some sort of error got printed.
+	if(serr_check_error())
+	{
+		serr("uncaught serr error\n");
+		return false;
+	}
+
+	if(!ar.is_complete())
+	{
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Error: incomplete json\n",
+			info);
+		return false;
+	}
+	return true;
+}
+
+// callback has a signature <void(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a JsonWriter<>
+template<class Callback>
+bool kson_write_json_memory(Callback cb, rj::StringBuffer& sb, const char* info = "<unspecified>")
+{
+	ASSERT(info != NULL);
+	JsonWriter<rj::StringBuffer, rj::PrettyWriter<rj::StringBuffer>> ar(sb);
+
+	bool cb_return = cb(ar);
+
+	// some sort of error got printed
+	if(!cb_return || serr_check_error())
+	{
+		serrf("Failed to write json: `%s`\n", info);
+		return false;
+	}
+
+	if(!ar.is_complete())
+	{
+		serrf(
+			"Failed to write json: `%s`\n"
+			"Error: failed to write a complete json file\n",
+			info);
+
+		return false;
+	}
+	return true;
+}
+
+// callback has a signature <void(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a JsonWriter<>
+template<class Callback>
+bool kson_write_json_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+{
+	ASSERT(file != NULL);
+	ASSERT(info != NULL);
+	ASSERT(file->good());
+
+	char write_buffer[1000];
+	KsonCB_WriteStream stream(
+		[file](char* buf, size_t write_num) -> size_t { return file->write(buf, 1, write_num); },
+		write_buffer,
+		sizeof(write_buffer));
+
+	JsonWriter<rj::StringBuffer, rj::PrettyWriter<rj::StringBuffer>> ar(stream);
+
+	bool cb_return = cb(ar);
+
+	// some sort of error got printed
+	if(!cb_return || serr_check_error())
+	{
+		serrf("Failed to write json: `%s`\n", info);
+		return false;
+	}
+
+	if(!ar.is_complete())
+	{
+		serrf(
+			"Failed to write json: `%s`\n"
+			"Error: failed to write a complete json file\n",
+			info);
+
+		return false;
+	}
+	return true;
+}
+
+// callback has a signature <bool(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a BinaryWriter<>
+template<class Callback>
+bool kson_read_binary_memory(
+	Callback cb, const char* file_memory, size_t file_size, const char* info = "<unspecified>")
+{
+	ASSERT(file_memory != NULL);
+	ASSERT(info != NULL);
+
+	KsonMemoryStream stream(file_memory, file_memory + file_size);
+
+	BinaryReader ar(stream);
+
+	bool cb_return = cb(ar);
+
+	if(!ar.good() || !cb_return)
+	{
+		serrf("Failed to parse binary: `%s`\n", info);
+		return false;
+	}
+
+	// some sort of error got printed.
+	if(serr_check_error())
+	{
+		serrf(
+			"Failed to parse binary: `%s`\n"
+			"Error: uncaught serr error\n",
+			info);
+		return false;
+	}
+
+	// For KsonMemoryStream ss.Tell() will go beyond the max size of the file
+	// if you continue to read, but it will not overrun the buffer.
+	// Unlike JsonReader, BinaryReader will overrun the buffer.
+	// This gets checked after serr_check_error because no error will be printed.
+	if(stream.Tell() != file_size)
+	{
+		serrf(
+			"Failed to parse binary: `%s`\n"
+			"Error: mismatching file end, size: %zu cursor: %zu\n",
+			info,
+			file_size,
+			stream.Tell());
+		return -1;
+	}
+
+	return true;
+}
+
+// callback has a signature <bool(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a BinaryReader<>
+template<class Callback>
+bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+{
+	ASSERT(info != NULL);
+	ASSERT(file != NULL);
+	ASSERT(file->good());
+
+	char read_buffer[1000];
+	KsonCB_ReadStream stream(
+		[file](char* buf, size_t read_num) -> size_t { return file->read(buf, 1, read_num); },
+		read_buffer,
+		sizeof(read_buffer));
+
+	BinaryReader ar(stream);
+
+	bool cb_return = cb(ar);
+
+	// if there was an error expected to be printed
+	if(!ar.good())
+	{
+		// the binary will not stop the cursor on an error.
+		// size_t offset = stream.Tell();
+		serrf("Failed to parse binary: `%s`\n", info);
+		return false;
+	}
+
+	if(!cb_return)
+	{
+		serrf("Failed to parse binary: `%s`\n", info);
+		return false;
+	}
+
+	// some sort of error got printed.
+	if(serr_check_error())
+	{
+		serrf(
+			"Failed to parse binary: `%s`\n"
+			"Error: uncaught serr error\n",
+			info);
+		return false;
+	}
+
+	int cursor;
+	if((cursor = file->tell()) < 0 || file->seek(0, SEEK_END) < 0)
+	{
+		return false;
+	}
+	int end = file->tell();
+	if(cursor != end)
+	{
+		serrf(
+			"Failed to parse binary: `%s`\n"
+			"Error: mismatching file end, size: %d cursor: %d\n",
+			end,
+			cursor);
+		return -1;
+	}
+
+	return true;
+}
+
+// callback has a signature <void(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a BinaryWriter<>
+template<class Callback>
+bool kson_write_binary_memory(Callback cb, rj::StringBuffer& sb, const char* info = "<unspecified>")
+{
+	ASSERT(info != NULL);
+	BinaryWriter ar(sb);
+
+	bool cb_return = cb(ar);
+
+	// some sort of error got printed
+	if(!cb_return || serr_check_error())
+	{
+		serrf("Failed to write binary: `%s`\n", info);
+		return false;
+	}
+	return true;
+}
+
+// callback has a signature <void(auto &ar)>
+// return false if you printed to serr, propogates to return.
+// ar is a BinaryWriter<>
+template<class Callback>
+bool kson_write_binary_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+{
+	ASSERT(file != NULL);
+	ASSERT(info != NULL);
+	ASSERT(file->good());
+
+	char write_buffer[1000];
+	KsonCB_WriteStream sb(
+		[file](char* buf, size_t write_num) -> size_t { return file->write(buf, 1, write_num); },
+		write_buffer,
+		sizeof(write_buffer));
+
+	BinaryWriter ar(sb);
+
+	bool cb_return = cb(ar);
+
+	// some sort of error got printed
+	if(!cb_return || serr_check_error())
+	{
+		serrf("Failed to write binary: `%s`\n", info);
+		return false;
+	}
+	return true;
+}

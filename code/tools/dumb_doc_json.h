@@ -15,7 +15,6 @@ namespace rj = rapidjson;
 class RWops;
 
 extern const char* g_kTypeNames[];
-extern const char* g_unspecified_filename_default;
 
 const char* rj_string(const rj::Value& value);
 
