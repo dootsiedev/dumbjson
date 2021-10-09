@@ -628,7 +628,11 @@ void data_type::kson_serialize(Archive& ar)
 	size_t test = 3;
 	ar.String_CB(
 		[this](const char* str, uint16_t size) {
-			ASSERT(utf8::is_valid(str, str + size));
+			if(!utf8::is_valid(str, str + size))
+			{
+				serr("invalid utf8\n");
+				return false;
+			}
 			s = std::string(str, size);
 			return true;
 		},
@@ -653,6 +657,7 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 				test_array_size = result;
 				return true;
 			}
+			serrf("max size: 3, result: %d\n", static_cast<int>(result));
 			return false;
 		},
 		test_array_size);
@@ -673,14 +678,15 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	ar.EndObject();
 }
 
+static const data_type kson_expected_array[] = {
+		{-4, 1.1, "aaa"}, {2, 2.234567890123456789, "bb\n"}, {3, -1, ""}};
+
 static int test_kson_json_stream(char* file_memory, size_t& file_size)
 {
-	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, -1, ""}};
-
 	{
 		// copy the contents in.
 		std::vector<data_type> dynamic_array(
-			expected_array, expected_array + std::size(expected_array));
+			kson_expected_array, kson_expected_array + std::size(kson_expected_array));
 
 		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
 		if(!file) return -1;
@@ -718,17 +724,17 @@ static int test_kson_json_stream(char* file_memory, size_t& file_size)
 			return -1;
 		}
 
-		if(result.size() != std::size(expected_array))
+		if(result.size() != std::size(kson_expected_array))
 		{
 			serrf(
 				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(expected_array),
+				std::size(kson_expected_array),
 				result.size());
 			return -1;
 		}
-		for(size_t i = 0; i < std::size(expected_array); ++i)
+		for(size_t i = 0; i < std::size(kson_expected_array); ++i)
 		{
-			if(result.at(i) != expected_array[i])
+			if(result.at(i) != kson_expected_array[i])
 			{
 				serrf("mismatching entry at: %zu\n", i);
 				return -1;
@@ -741,12 +747,11 @@ static int test_kson_json_stream(char* file_memory, size_t& file_size)
 
 static int test_kson_json_memory(char* file_memory, size_t& file_size)
 {
-	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, -1, ""}};
 
 	{
 		// copy the contents in.
 		std::vector<data_type> dynamic_array(
-			expected_array, expected_array + std::size(expected_array));
+			kson_expected_array, kson_expected_array + std::size(kson_expected_array));
 
 		rj::StringBuffer sb;
 
@@ -780,17 +785,17 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 			return -1;
 		}
 
-		if(result.size() != std::size(expected_array))
+		if(result.size() != std::size(kson_expected_array))
 		{
 			serrf(
 				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(expected_array),
+				std::size(kson_expected_array),
 				result.size());
 			return -1;
 		}
-		for(size_t i = 0; i < std::size(expected_array); ++i)
+		for(size_t i = 0; i < std::size(kson_expected_array); ++i)
 		{
-			if(result.at(i) != expected_array[i])
+			if(result.at(i) != kson_expected_array[i])
 			{
 				serrf("mismatching entry at: %zu\n", i);
 				return -1;
@@ -803,13 +808,12 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 
 static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 {
-	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, 2, ""}};
 
 	{
 		rj::StringBuffer sb;
 		// copy the contents in.
 		std::vector<data_type> dynamic_array(
-			expected_array, expected_array + std::size(expected_array));
+			kson_expected_array, kson_expected_array + std::size(kson_expected_array));
 
 		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
 		if(!file) return -1;
@@ -847,41 +851,41 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 			return -1;
 		}
 
-		if(result.size() != std::size(expected_array))
+		if(result.size() != std::size(kson_expected_array))
 		{
 			serrf(
 				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(expected_array),
+				std::size(kson_expected_array),
 				result.size());
 			return -1;
 		}
-		for(size_t i = 0; i < std::size(expected_array); ++i)
+		for(size_t i = 0; i < std::size(kson_expected_array); ++i)
 		{
-			if(result.at(i) != expected_array[i])
+			if(result.at(i) != kson_expected_array[i])
 			{
 				serrf("mismatching entry at: %zu\n", i);
 				return -1;
 			}
 		}
 	}
-
+#if 0
 	std::string tmp = base64_encode(file_memory, file_size);
-	file_size = (tmp.size() > file_size - 1 ? file_size - 1 : tmp.size());
-	memcpy(file_memory, tmp.c_str(), file_size);
+	//TODO (dootsie): this is unsafe
+	memcpy(file_memory, tmp.c_str(), tmp.size());
 	file_memory[file_size] = '\0';
+#endif
 
 	return 0;
 }
 
 static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 {
-	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, 2, ""}};
 
 	{
 		rj::StringBuffer sb;
 		// copy the contents in.
 		std::vector<data_type> dynamic_array(
-			expected_array, expected_array + std::size(expected_array));
+			kson_expected_array, kson_expected_array + std::size(kson_expected_array));
 
 		if(!kson_write_binary_memory(
 			   [&dynamic_array](auto& ar) -> bool {
@@ -913,17 +917,17 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 			return -1;
 		}
 
-		if(result.size() != std::size(expected_array))
+		if(result.size() != std::size(kson_expected_array))
 		{
 			serrf(
 				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(expected_array),
+				std::size(kson_expected_array),
 				result.size());
 			return -1;
 		}
-		for(size_t i = 0; i < std::size(expected_array); ++i)
+		for(size_t i = 0; i < std::size(kson_expected_array); ++i)
 		{
-			if(result.at(i) != expected_array[i])
+			if(result.at(i) != kson_expected_array[i])
 			{
 				serrf("mismatching entry at: %zu\n", i);
 				return -1;
@@ -931,10 +935,11 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 		}
 	}
 
+#if 0
 	std::string tmp = base64_encode(file_memory, file_size);
-	file_size = (tmp.size() > file_size - 1 ? file_size - 1 : tmp.size());
-	memcpy(file_memory, tmp.c_str(), file_size);
+	memcpy(file_memory, tmp.c_str(), tmp.size());
 	file_memory[file_size] = '\0';
+#endif
 
 	return 0;
 }
