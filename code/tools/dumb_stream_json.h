@@ -10,28 +10,15 @@
 // Keys, objects, arrays, are stubbed away in the binary serializer.
 // An annoying limitation is that dynamic sized arrays requires you to specifiy
 // The size of an array ahead of the data you load (like a pascal string).
-// Arrays require you to also check the IsWriter flag to properly work with dynamic arrays.
+// Arrays require you to also check the IsReader flag to properly work with dynamic arrays.
 // Note:
 // Performance is not a goal for the Binary format, because rapidjson is surprisingly fast,
-// (note that rapidjson DOM is on equal performance as the binary format for my simple tests)
 // But the benefit is the lack of care needed with the length of key strings in JSON,
-// So you can have descriptive names of every variable without a care,
-// and even group up variables in redundant object scopes.
-// To insert comments you can use "key":null, useful for type ID's.
+// So you can have descriptive names of every variable without a worry about micro optimization.
 
 // TODO:
-//-the base64 serializer needs tidying
-//-even though it's completely redundant, maybe I should have a NDEBUG optimized out
-// stack that checks that all Key Start Stop Array Object are matched correctly in BinaryWriter
-// but Just testing Json should detect any malformed Json
-// (-DNDEBUG will remove rapidjson checks for the writer but it will quickly segfault)
-//-If you write a string/data that is longer than the max size, you will assert.
-// maybe it would be nice if I used std::source_location and print that into serrf,
-// but a backtrace from a debugger has much more information (include a trace in the message?),
-// but this error SHOULD only be a programmer error (why was the string that long?)
-//-The example is overcomplicated, maybe write a convenience wrapper that "just works"?
-//-clean up error messages (maybe make every message include what class and function was called?)
-//-I am noticing that binary bloat can be somewhat of a problem, but hopefully it doesn't scale.
+//-I am noticing that binary bloat is becoming a problem, anything obvious I can do?
+//-CTRL+F TODO
 
 // example
 #if 0
@@ -57,6 +44,7 @@ bool serialize_data_group(Archive& ar, std::vector<data_type>& group_data)
 	ar.Key("size");
 	uint16_t size = std::size(group_data);
 	
+	//you must store the size unlike normal json.
 	ar.Uint16(size);
 
 	//this could be put into Uint16_CB as well,
@@ -255,7 +243,7 @@ template<class Callback>
 class internal_bool_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_bool_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 
 	explicit internal_bool_json_handler(Callback cb)
@@ -279,7 +267,7 @@ template<class Callback>
 class internal_int_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_int_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 
 	explicit internal_int_json_handler(Callback cb)
@@ -310,7 +298,7 @@ template<class Callback>
 class internal_uint_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_uint_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 
 	explicit internal_uint_json_handler(Callback cb)
@@ -332,7 +320,7 @@ template<class Callback>
 class internal_int64_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_int64_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 
 	explicit internal_int64_json_handler(Callback cb)
@@ -374,7 +362,7 @@ template<class Callback>
 class internal_uint64_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_uint64_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 
 	explicit internal_uint64_json_handler(Callback cb)
@@ -400,7 +388,7 @@ template<class Callback>
 class internal_double_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_double_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 
 	explicit internal_double_json_handler(Callback cb)
@@ -433,7 +421,7 @@ template<class T, class Callback>
 class internal_uint_promote_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_uint_promote_json_handler<T, Callback>>
 {
-  public:
+public:
 	Callback call;
 
 	explicit internal_uint_promote_json_handler(Callback cb)
@@ -463,7 +451,7 @@ template<class Callback>
 class internal_string_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_string_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 	size_t max_size;
 
@@ -492,7 +480,7 @@ template<class Callback>
 class internal_data_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_data_json_handler<Callback>>
 {
-  public:
+public:
 	Callback call;
 	size_t max_size;
 
@@ -522,7 +510,7 @@ template<size_t size>
 class internal_key_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_key_json_handler<size>>
 {
-  public:
+public:
 	const char (&s)[size];
 
 	explicit internal_key_json_handler(const char (&s_)[size])
@@ -548,7 +536,7 @@ class internal_key_json_handler
 class internal_startobject_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_startobject_json_handler>
 {
-  public:
+public:
 	bool Default()
 	{
 		serr("expected '{'\n");
@@ -563,7 +551,7 @@ class internal_startobject_json_handler
 class internal_endobject_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_endobject_json_handler>
 {
-  public:
+public:
 	bool Default()
 	{
 		serr("expected '}'\n");
@@ -578,7 +566,7 @@ class internal_endobject_json_handler
 class internal_startarray_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_startarray_json_handler>
 {
-  public:
+public:
 	bool Default()
 	{
 		serr("expected '['\n");
@@ -593,7 +581,7 @@ class internal_startarray_json_handler
 class internal_endarray_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_endarray_json_handler>
 {
-  public:
+public:
 	bool Default()
 	{
 		serr("expected ']'\n");
@@ -608,7 +596,7 @@ class internal_endarray_json_handler
 class internal_null_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_null_json_handler>
 {
-  public:
+public:
 	bool Default()
 	{
 		serr("expected null\n");
@@ -648,7 +636,7 @@ struct internal_string_setter
 template<class JsonStream>
 class JsonReader
 {
-  public:
+public:
 	bool error = false;
 	rj::Reader reader;
 	JsonStream& stream;
@@ -982,7 +970,7 @@ class JsonReader
 template<class JsonOutput, class JsonFormat = rj::PrettyWriter<JsonOutput>>
 class JsonWriter
 {
-  public:
+public:
 	JsonFormat writer;
 
 	enum
@@ -1178,7 +1166,7 @@ class JsonWriter
 template<class StreamReader>
 class BinaryReader
 {
-  public:
+public:
 	StreamReader& reader;
 	bool error = false;
 
@@ -1436,7 +1424,7 @@ class BinaryReader
 template<class WriteStream>
 class BinaryWriter
 {
-  public:
+public:
 	WriteStream& output;
 
 	enum
@@ -1688,7 +1676,7 @@ struct KsonMemoryStream
 template<class Callback>
 class KsonCB_ReadStream
 {
-  public:
+public:
 	typedef char Ch; //!< Character type (byte).
 
 	KsonCB_ReadStream(Callback cb_, char* buffer, size_t bufferSize)
@@ -1739,7 +1727,7 @@ class KsonCB_ReadStream
 		return 0;
 	}
 
-  private:
+private:
 	void Read()
 	{
 		if(current_ < bufferLast_)
@@ -1778,7 +1766,7 @@ class KsonCB_ReadStream
 template<class Callback>
 class KsonCB_WriteStream
 {
-  public:
+public:
 	typedef char Ch; //!< Character type. Only support char.
 
 	KsonCB_WriteStream(Callback cb_, char* buffer, size_t bufferSize)
@@ -1837,7 +1825,7 @@ class KsonCB_WriteStream
 		return 0;
 	}
 
-  private:
+private:
 	Callback cb;
 	char* buffer_;
 	char* bufferEnd_;
@@ -2042,9 +2030,13 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = NULL)
 			info,
 			GetParseError_En(ar.reader.GetParseErrorCode()),
 			ar.reader.GetErrorOffset());
+
 		// rewind the stream
 		if(file->seek(0, SEEK_SET) >= 0)
 		{
+			// reset the stream.
+			stream = KsonCB_ReadStream(
+				internal_rwops_read_callback{file}, read_buffer, sizeof(read_buffer));
 			print_json_error(stream, ar.reader.GetErrorOffset());
 		}
 		return false;
@@ -2062,6 +2054,9 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = NULL)
 		// rewind the stream
 		if(file->seek(0, SEEK_SET) >= 0)
 		{
+			// reset the stream.
+			stream = KsonCB_ReadStream(
+				internal_rwops_read_callback{file}, read_buffer, sizeof(read_buffer));
 			print_json_error(stream, offset);
 		}
 		return false;

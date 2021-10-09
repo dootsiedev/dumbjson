@@ -66,7 +66,7 @@ const char* rj_string(const rj::Value& value)
 // specific language governing permissions and limitations under the License.
 class RWops_JsonReadStream
 {
-  public:
+public:
 	typedef char Ch; //!< Character type (byte).
 
 	//! Constructor.
@@ -131,7 +131,7 @@ class RWops_JsonReadStream
 		return (current_ + 4 - static_cast<int>(!eof_) <= bufferLast_) ? current_ : 0;
 	}
 
-  private:
+private:
 	void Read()
 	{
 		if(current_ < bufferLast_)
@@ -166,7 +166,7 @@ class RWops_JsonReadStream
 
 class RWops_JsonWriteStream
 {
-  public:
+public:
 	typedef char Ch; //!< Character type. Only support char.
 
 	RWops_JsonWriteStream(RWops* fp, char* buffer, size_t bufferSize)
@@ -245,7 +245,7 @@ class RWops_JsonWriteStream
 		return 0;
 	}
 
-  private:
+private:
 	RWops* fp_;
 	char* buffer_;
 	char* bufferEnd_;

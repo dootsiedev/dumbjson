@@ -22,7 +22,7 @@ static_assert(SEEK_END == RW_SEEK_END);
 
 class RWops_Stdio_NoClose : public RWops
 {
-  public:
+public:
 	FILE* fp;
 	RWops_Stdio_NoClose(FILE* stream, const char* file)
 	: fp(stream)
@@ -83,7 +83,7 @@ class RWops_Stdio_NoClose : public RWops
 
 class RWops_Stdio_AutoClose : public RWops_Stdio_NoClose
 {
-  public:
+public:
 	RWops_Stdio_AutoClose(FILE* stream, const char* file)
 	: RWops_Stdio_NoClose(stream, file)
 	{
@@ -109,7 +109,7 @@ class RWops_Stdio_AutoClose : public RWops_Stdio_NoClose
 // not high performance by any means, but portable.
 class RWops_SDL_NoClose : public RWops
 {
-  public:
+public:
 	SDL_RWops* sdl_ops;
 	bool error_flag;
 	RWops_SDL_NoClose(SDL_RWops* stream, const char* file)
@@ -206,7 +206,7 @@ class RWops_SDL_NoClose : public RWops
 
 class RWops_SDL_AutoClose : public RWops_SDL_NoClose
 {
-  public:
+public:
 	RWops_SDL_AutoClose(SDL_RWops* stream, const char* file)
 	: RWops_SDL_NoClose(stream, file)
 	{

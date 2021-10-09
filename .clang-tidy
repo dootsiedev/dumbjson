@@ -25,6 +25,8 @@ Checks: >
   -readability-convert-member-functions-to-static,
   -misc-static-assert,
   -google-objc-*,
+  -modernize-use-auto,
+  -bugprone-reserved-identifier,
 #you must make sure the last THING to ends with a comma!!!
   
 

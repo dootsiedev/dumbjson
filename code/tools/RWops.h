@@ -2,7 +2,7 @@
 
 class RWops
 {
-  public:
+public:
 	const char* stream_info = "<unspecified>";
 	// follows the same error specifications as stdio functions.
 	// if read returns 0, check serr_check_error() or good()
@@ -12,7 +12,7 @@ class RWops
 	virtual int seek(int offset, int whence) = 0;
 	virtual int tell() = 0;
 
-	//if false, it should mean that an error has been printed.
+	// if false, it should mean that an error has been printed.
 	virtual bool good() = 0;
 
 	// the one annoying quirk is that the destructor won't return an error,

@@ -27,7 +27,7 @@ union json_unwind_entry
 
 class JsonState : nocopy
 {
-  public:
+public:
 	// note, it is expected to manually access this, same for rjvalue,
 	// because I am not going to wrap every single function.
 	// optimization: I can supply a memory buffer to avoid malloc
@@ -280,7 +280,7 @@ class JsonState : nocopy
 // nitpick: the name "Reader" is misleading, it doesn't read anything.
 class JsonMemberReader : nocopy
 {
-  public:
+public:
 	// this is a pointer purely for the use as a finish flag.
 	std::vector<json_unwind_entry>* json_unwind_table;
 #ifdef MYDEBUG
@@ -325,7 +325,7 @@ class JsonMemberReader : nocopy
 // note you need to use JsonState::CheckIndex(...rj::kObjectType/kArrayType).
 class JsonIndexReader : nocopy
 {
-  public:
+public:
 	// this is a pointer purely for the use as a finish flag.
 	std::vector<json_unwind_entry>* json_unwind_table;
 #ifdef MYDEBUG
@@ -375,7 +375,7 @@ class JsonIndexReader : nocopy
 template<bool Const, class ValueT>
 class JsonConfigReader
 {
-  public:
+public:
 	enum
 	{
 		IsReader = 1,
@@ -429,7 +429,7 @@ class JsonConfigReader
 template<bool Const, class ValueT>
 class JsonConfigWriter
 {
-  public:
+public:
 	enum
 	{
 		IsReader = 0,

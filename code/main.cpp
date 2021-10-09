@@ -657,7 +657,7 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 				test_array_size = result;
 				return true;
 			}
-			serrf("max size: 3, result: %d\n", static_cast<int>(result));
+			serrf("max size: 3, result: %u\n", result);
 			return false;
 		},
 		test_array_size);
@@ -679,7 +679,7 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 }
 
 static const data_type kson_expected_array[] = {
-		{-4, 1.1, "aaa"}, {2, 2.234567890123456789, "bb\n"}, {3, -1, ""}};
+	{-4, 1.1, "aaa"}, {2, 2.234567890123456789, "bb\n"}, {3, -1, ""}};
 
 static int test_kson_json_stream(char* file_memory, size_t& file_size)
 {
@@ -747,7 +747,6 @@ static int test_kson_json_stream(char* file_memory, size_t& file_size)
 
 static int test_kson_json_memory(char* file_memory, size_t& file_size)
 {
-
 	{
 		// copy the contents in.
 		std::vector<data_type> dynamic_array(
@@ -808,7 +807,6 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 
 static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 {
-
 	{
 		rj::StringBuffer sb;
 		// copy the contents in.
@@ -880,7 +878,6 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 
 static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 {
-
 	{
 		rj::StringBuffer sb;
 		// copy the contents in.
