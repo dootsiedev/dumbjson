@@ -33,18 +33,10 @@
 //-clean up error messages (maybe make every message include what class and function was called?)
 //-I am noticing that binary bloat can be somewhat of a problem, but hopefully it doesn't scale.
 
-#include "SDL_stdinc.h"
-#include <cstdio>
+#include <cmath>
 #define RAPIDJSON_ASSERT ASSERT
 #define RAPIDJSON_HAS_STDSTRING 1
 
-//#include "rapidjson/rapidjson.h"
-#include <cstdint>
-#include <rapidjson/writer.h>
-
-#include <limits>
-
-//#include <rapidjson/rapidjson.h>
 #include <rapidjson/reader.h>
 
 // needed for the convenience functions
@@ -590,7 +582,6 @@ class JsonReader
 		return reader.IterativeParseComplete();
 	}
 
-	// null is kinda pointless, maybe placeholder data?
 	void Null()
 	{
 		if(error) return; // preserve error offset.
@@ -765,25 +756,13 @@ class JsonReader
 	// float will promote to double, there shouldn't be a problem.
 	void Float(float& d)
 	{
-		Float_CB(internal_simple_setter{d}, {});
+		Double_CB(internal_simple_setter{d}, {});
 	}
 	template<class Callback>
 	void Float_CB(Callback cb, float)
 	{
-		if(error) return; // preserve error offset.
 		// promote to double
-		// a double to float can lose a significant ammount of resolution.
-		// the rapidjson DOM has a IsLosslessFloat function that I can reference.
-		internal_double_json_handler handler(cb);
-		if(reader.IterativeParseComplete())
-		{
-			serrf("write after complete: %s\n", __func__);
-			error = true;
-		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
-		{
-			error = true;
-		}
+		Double_CB(cb, {});
 	}
 	void String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
@@ -903,8 +882,8 @@ class JsonReader
 	}
 };
 
-// you could set JsonOutput to rj::StringBuffer, and JsonFormat to rj::PrettyWriter
-template<class JsonOutput, class JsonFormat = rj::Writer<JsonOutput>>
+// you could set JsonOutput to rj::StringBuffer
+template<class JsonOutput, class JsonFormat = rj::PrettyWriter<JsonOutput>>
 class JsonWriter
 {
   public:
@@ -925,7 +904,6 @@ class JsonWriter
 		return writer.IsComplete();
 	}
 
-	// null is kinda pointless, maybe placeholder data?
 	void Null()
 	{
 		writer.Null();
@@ -1123,7 +1101,6 @@ class BinaryReader
 		return !error;
 	}
 
-	// null is kinda pointless, maybe placeholder data?
 	void Null() {}
 
 	void Bool(bool& b)
@@ -1253,6 +1230,13 @@ class BinaryReader
 		// and this is probably faster and more accurate, and supports NAN
 		// But precicion and nan is not completely portable (I think).
 		d = *reinterpret_cast<double*>(&tmp);
+
+		// TODO (dootsie): write a handler that does this check for the callback
+		ASSERT(std::isfinite(d) && "failed to read double");
+		if(!std::isfinite(d))
+		{
+			serrf("failed to read double: %f\n", d);
+		}
 	}
 	template<class Callback>
 	void Double_CB(Callback cb, double)
@@ -1266,6 +1250,12 @@ class BinaryReader
 		uint32_t tmp;
 		Uint(tmp);
 		d = *reinterpret_cast<float*>(&tmp);
+
+		ASSERT(std::isfinite(d) && "failed to read float");
+		if(!std::isfinite(d))
+		{
+			serrf("failed to read float: %f\n", d);
+		}
 	}
 	template<class Callback>
 	void Float_CB(Callback cb, float)
@@ -1363,7 +1353,6 @@ class BinaryWriter
 	{
 	}
 
-	// null is kinda pointless, maybe placeholder data?
 	void Null() {}
 
 	void Bool(bool b)
@@ -1454,6 +1443,12 @@ class BinaryWriter
 	}
 	void Double(double d)
 	{
+		ASSERT(std::isfinite(d) && "failed to write double");
+		if(!std::isfinite(d))
+		{
+			serrf("failed to write double: %f\n", d);
+		}
+
 		uint64_t fhold = *reinterpret_cast<uint64_t*>(&d);
 		output.Put(static_cast<char>(fhold >> 56));
 		output.Put(static_cast<char>(fhold >> 48));
@@ -1472,6 +1467,11 @@ class BinaryWriter
 	// float will promote to double.
 	void Float(float d)
 	{
+		ASSERT(std::isfinite(d) && "failed to write float");
+		if(!std::isfinite(d))
+		{
+			serrf("failed to write float: %f\n", d);
+		}
 		uint32_t fhold = *reinterpret_cast<uint32_t*>(&d);
 		output.Put(static_cast<char>(fhold >> 24));
 		output.Put(static_cast<char>(fhold >> 16));
@@ -1537,6 +1537,7 @@ class BinaryWriter
 // because rj::StringStream doesn't check for overrun because NULL is used for EOF,
 // but BinaryReader cant check for a NULL terminater because the data is binary.
 // So for BinaryReader, you have to use this or else Bad Things Will Happen (TM)
+// This is 99% copy pasted from rj::MemoryStream, but modified for safety.
 struct KsonMemoryStream
 {
 	typedef char Ch;
@@ -1586,10 +1587,8 @@ struct KsonMemoryStream
 	}
 };
 
-// This is 99% copy pasted from rapidjson::FileReadStream, but modified for use by RWops,
-// and this will also open the ability to check for EOF error,
-// and the callback can optionally check for errors too.
 // the callback signature is <size_t(char* buffer, size_t read_num)> returns bytes read.
+// This is copy pasted from rapidjson::FileReadStream, but modified for use by RWops.
 template<class Callback>
 class KsonCB_ReadStream
 {
@@ -1677,6 +1676,8 @@ class KsonCB_ReadStream
 	bool eof_;
 };
 
+// the callback signature is <size_t(char* buffer, size_t write_num)> returns bytes written.
+// You might want to flush if you want RWops::tell to work.
 // this is copy pasted from rapidjson::FileWriteStream
 template<class Callback>
 class KsonCB_WriteStream
@@ -1825,9 +1826,26 @@ void print_json_error(Reader& reader, size_t offset)
 	}
 }
 
+struct internal_rwops_read_callback
+{
+	RWops* file;
+	size_t operator()(char* memory, size_t read_num) const
+	{
+		return file->read(memory, 1, read_num);
+	}
+};
+
+struct internal_rwops_write_callback
+{
+	RWops* file;
+	size_t operator()(char* memory, size_t write_num) const
+	{
+		return file->write(memory, 1, write_num);
+	}
+};
+
 // callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a JsonReader<>
 template<class Callback>
 bool kson_read_json_memory(
 	Callback cb, const char* file_memory, size_t file_size, const char* info = "<unspecified>")
@@ -1875,6 +1893,7 @@ bool kson_read_json_memory(
 	if(!cb_return)
 	{
 		serrf("Failed to parse json: `%s`\n", info);
+		serrf("Stream size: %zu\n", file_size);
 		return false;
 	}
 
@@ -1885,6 +1904,7 @@ bool kson_read_json_memory(
 			"Failed to parse json: `%s`\n"
 			"Error: uncaught serr error\n",
 			info);
+		serrf("Stream size: %zu\n", file_size);
 		return false;
 	}
 
@@ -1894,6 +1914,7 @@ bool kson_read_json_memory(
 			"Failed to parse json: `%s`\n"
 			"Error: incomplete json\n",
 			info);
+		serrf("Stream size: %zu\n", file_size);
 		return false;
 	}
 	return true;
@@ -1901,19 +1922,16 @@ bool kson_read_json_memory(
 
 // callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a JsonReader<>
 template<class Callback>
-bool kson_read_json_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+bool kson_read_json_stream(Callback cb, RWops* file, const char* info = NULL)
 {
-	ASSERT(info != NULL);
 	ASSERT(file != NULL);
 	ASSERT(file->good());
+	ASSERT(file->stream_info != NULL);
+	info = (info == NULL ? file->stream_info : info);
 
 	char read_buffer[1000];
-	KsonCB_ReadStream stream(
-		[file](char* buf, size_t read_num) -> size_t { return file->read(buf, 1, read_num); },
-		read_buffer,
-		sizeof(read_buffer));
+	KsonCB_ReadStream stream(internal_rwops_read_callback{file}, read_buffer, sizeof(read_buffer));
 
 	JsonReader ar(stream);
 
@@ -1937,7 +1955,7 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = "<unspec
 	}
 
 	// if there was an error expected to be printed
-	if(!ar.good())
+	if(!ar.good() || !cb_return)
 	{
 		size_t offset = stream.Tell();
 		serrf(
@@ -1948,21 +1966,19 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = "<unspec
 		// rewind the stream
 		if(file->seek(0, SEEK_SET) >= 0)
 		{
-			print_json_error(stream, ar.reader.GetErrorOffset());
+			print_json_error(stream, offset);
 		}
-		return false;
-	}
-
-	if(!cb_return)
-	{
-		serrf("Failed to parse json: `%s`\n", info);
 		return false;
 	}
 
 	// some sort of error got printed.
 	if(serr_check_error())
 	{
-		serr("uncaught serr error\n");
+		serrf(
+			"Failed to parse json: `%s`\n"
+			"Error: uncaught serr error\n",
+			info);
+		serrf("Stream size: %zu\n", stream.Tell());
 		return false;
 	}
 
@@ -1972,6 +1988,7 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = "<unspec
 			"Failed to parse json: `%s`\n"
 			"Error: incomplete json\n",
 			info);
+		serrf("Stream size: %zu\n", stream.Tell());
 		return false;
 	}
 	return true;
@@ -1979,12 +1996,11 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = "<unspec
 
 // callback has a signature <void(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a JsonWriter<>
 template<class Callback>
 bool kson_write_json_memory(Callback cb, rj::StringBuffer& sb, const char* info = "<unspecified>")
 {
 	ASSERT(info != NULL);
-	JsonWriter<rj::StringBuffer, rj::PrettyWriter<rj::StringBuffer>> ar(sb);
+	JsonWriter ar(sb);
 
 	bool cb_return = cb(ar);
 
@@ -1992,6 +2008,7 @@ bool kson_write_json_memory(Callback cb, rj::StringBuffer& sb, const char* info 
 	if(!cb_return || serr_check_error())
 	{
 		serrf("Failed to write json: `%s`\n", info);
+		serrf("Stream size: %zu\n", sb.GetSize());
 		return false;
 	}
 
@@ -2001,7 +2018,7 @@ bool kson_write_json_memory(Callback cb, rj::StringBuffer& sb, const char* info 
 			"Failed to write json: `%s`\n"
 			"Error: failed to write a complete json file\n",
 			info);
-
+		serrf("Stream size: %zu\n", sb.GetSize());
 		return false;
 	}
 	return true;
@@ -2009,28 +2026,31 @@ bool kson_write_json_memory(Callback cb, rj::StringBuffer& sb, const char* info 
 
 // callback has a signature <void(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a JsonWriter<>
 template<class Callback>
-bool kson_write_json_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+bool kson_write_json_stream(Callback cb, RWops* file, const char* info = NULL)
 {
 	ASSERT(file != NULL);
-	ASSERT(info != NULL);
 	ASSERT(file->good());
+	ASSERT(file->stream_info != NULL);
+	info = (info == NULL ? file->stream_info : info);
 
 	char write_buffer[1000];
 	KsonCB_WriteStream stream(
-		[file](char* buf, size_t write_num) -> size_t { return file->write(buf, 1, write_num); },
-		write_buffer,
-		sizeof(write_buffer));
+		internal_rwops_write_callback{file}, write_buffer, sizeof(write_buffer));
 
-	JsonWriter<rj::StringBuffer, rj::PrettyWriter<rj::StringBuffer>> ar(stream);
+	JsonWriter ar(stream);
 
 	bool cb_return = cb(ar);
+
+	// this will NOT be automatically called on the destructor.
+	// file->tell() will not work without this.
+	stream.Flush();
 
 	// some sort of error got printed
 	if(!cb_return || serr_check_error())
 	{
 		serrf("Failed to write json: `%s`\n", info);
+		serrf("Stream size: `%d`\n", file->tell());
 		return false;
 	}
 
@@ -2040,7 +2060,7 @@ bool kson_write_json_stream(Callback cb, RWops* file, const char* info = "<unspe
 			"Failed to write json: `%s`\n"
 			"Error: failed to write a complete json file\n",
 			info);
-
+		serrf("Stream size: `%d`\n", file->tell());
 		return false;
 	}
 	return true;
@@ -2048,7 +2068,6 @@ bool kson_write_json_stream(Callback cb, RWops* file, const char* info = "<unspe
 
 // callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a BinaryWriter<>
 template<class Callback>
 bool kson_read_binary_memory(
 	Callback cb, const char* file_memory, size_t file_size, const char* info = "<unspecified>")
@@ -2065,6 +2084,7 @@ bool kson_read_binary_memory(
 	if(!ar.good() || !cb_return)
 	{
 		serrf("Failed to parse binary: `%s`\n", info);
+		serrf("Stream size: %zu\n", file_size);
 		return false;
 	}
 
@@ -2075,6 +2095,7 @@ bool kson_read_binary_memory(
 			"Failed to parse binary: `%s`\n"
 			"Error: uncaught serr error\n",
 			info);
+		serrf("Stream size: %zu\n", file_size);
 		return false;
 	}
 
@@ -2098,13 +2119,13 @@ bool kson_read_binary_memory(
 
 // callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a BinaryReader<>
 template<class Callback>
-bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 {
-	ASSERT(info != NULL);
 	ASSERT(file != NULL);
 	ASSERT(file->good());
+	ASSERT(file->stream_info != NULL);
+	info = (info == NULL ? file->stream_info : info);
 
 	char read_buffer[1000];
 	KsonCB_ReadStream stream(
@@ -2117,17 +2138,10 @@ bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = "<unsp
 	bool cb_return = cb(ar);
 
 	// if there was an error expected to be printed
-	if(!ar.good())
-	{
-		// the binary will not stop the cursor on an error.
-		// size_t offset = stream.Tell();
-		serrf("Failed to parse binary: `%s`\n", info);
-		return false;
-	}
-
-	if(!cb_return)
+	if(!ar.good() || !cb_return)
 	{
 		serrf("Failed to parse binary: `%s`\n", info);
+		serrf("Stream size: %zu\n", stream.Tell());
 		return false;
 	}
 
@@ -2138,20 +2152,19 @@ bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = "<unsp
 			"Failed to parse binary: `%s`\n"
 			"Error: uncaught serr error\n",
 			info);
+		serrf("Stream size: %zu\n", stream.Tell());
 		return false;
 	}
 
-	int cursor;
-	if((cursor = file->tell()) < 0 || file->seek(0, SEEK_END) < 0)
-	{
-		return false;
-	}
+	int cursor = file->tell();
+	file->seek(0, SEEK_END);
 	int end = file->tell();
-	if(cursor != end)
+	if(cursor != end || cursor == -1)
 	{
 		serrf(
 			"Failed to parse binary: `%s`\n"
 			"Error: mismatching file end, size: %d cursor: %d\n",
+			info,
 			end,
 			cursor);
 		return -1;
@@ -2162,7 +2175,6 @@ bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = "<unsp
 
 // callback has a signature <void(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a BinaryWriter<>
 template<class Callback>
 bool kson_write_binary_memory(Callback cb, rj::StringBuffer& sb, const char* info = "<unspecified>")
 {
@@ -2175,6 +2187,7 @@ bool kson_write_binary_memory(Callback cb, rj::StringBuffer& sb, const char* inf
 	if(!cb_return || serr_check_error())
 	{
 		serrf("Failed to write binary: `%s`\n", info);
+		serrf("Stream size: %zu\n", sb.GetSize());
 		return false;
 	}
 	return true;
@@ -2182,28 +2195,33 @@ bool kson_write_binary_memory(Callback cb, rj::StringBuffer& sb, const char* inf
 
 // callback has a signature <void(auto &ar)>
 // return false if you printed to serr, propogates to return.
-// ar is a BinaryWriter<>
 template<class Callback>
-bool kson_write_binary_stream(Callback cb, RWops* file, const char* info = "<unspecified>")
+bool kson_write_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 {
 	ASSERT(file != NULL);
-	ASSERT(info != NULL);
 	ASSERT(file->good());
+	ASSERT(file->stream_info != NULL);
+	info = (info == NULL ? file->stream_info : info);
 
 	char write_buffer[1000];
-	KsonCB_WriteStream sb(
+	KsonCB_WriteStream stream(
 		[file](char* buf, size_t write_num) -> size_t { return file->write(buf, 1, write_num); },
 		write_buffer,
 		sizeof(write_buffer));
 
-	BinaryWriter ar(sb);
+	BinaryWriter ar(stream);
 
 	bool cb_return = cb(ar);
+
+	// this will NOT be automatically called on the destructor.
+	// file->tell() will not work without this.
+	stream.Flush();
 
 	// some sort of error got printed
 	if(!cb_return || serr_check_error())
 	{
 		serrf("Failed to write binary: `%s`\n", info);
+		serrf("Stream size: %d\n", file->tell());
 		return false;
 	}
 	return true;

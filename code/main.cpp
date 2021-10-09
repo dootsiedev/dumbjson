@@ -646,7 +646,16 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	// which is the requirement of manually sized arrays.
 	ar.Key("size");
 	uint16_t test_array_size = std::size(data);
-	ar.Uint16(test_array_size);
+	ar.Uint16_CB(
+		[&test_array_size](uint16_t result) {
+			if(result <= 3)
+			{
+				test_array_size = result;
+				return true;
+			}
+			return false;
+		},
+		test_array_size);
 
 	if(Archive::IsReader)
 	{
@@ -664,22 +673,90 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	ar.EndObject();
 }
 
-static int test_kson_json(char* file_memory, size_t& file_size)
+static int test_kson_json_stream(char* file_memory, size_t& file_size)
 {
 	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, -1, ""}};
 
 	{
-		rj::StringBuffer sb;
 		// copy the contents in.
 		std::vector<data_type> dynamic_array(
 			expected_array, expected_array + std::size(expected_array));
 
-		if(!kson_write_json_memory(
-			   [&dynamic_array](auto &ar) -> bool {
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
+		if(!file) return -1;
+
+		if(!kson_write_json_stream(
+			   [&dynamic_array](auto& ar) -> bool {
 				   kson_array_of_objects(ar, dynamic_array);
 				   return true;
 			   },
-			   sb))
+			   file.get()))
+		{
+			return -1;
+		}
+
+		int cursor = file->tell();
+		if(cursor < 0)
+		{
+			return -1;
+		}
+		file_size = cursor;
+		file_memory[file_size] = '\0';
+	}
+	{
+		std::vector<data_type> result;
+
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
+		if(!file) return -1;
+		if(!kson_read_json_stream(
+			   [&result](auto& ar) -> bool {
+				   kson_array_of_objects(ar, result);
+				   return true;
+			   },
+			   file.get()))
+		{
+			return -1;
+		}
+
+		if(result.size() != std::size(expected_array))
+		{
+			serrf(
+				"mismatching array, expected: %zu, result: %zu\n",
+				std::size(expected_array),
+				result.size());
+			return -1;
+		}
+		for(size_t i = 0; i < std::size(expected_array); ++i)
+		{
+			if(result.at(i) != expected_array[i])
+			{
+				serrf("mismatching entry at: %zu\n", i);
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int test_kson_json_memory(char* file_memory, size_t& file_size)
+{
+	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, -1, ""}};
+
+	{
+		// copy the contents in.
+		std::vector<data_type> dynamic_array(
+			expected_array, expected_array + std::size(expected_array));
+
+		rj::StringBuffer sb;
+
+		if(!kson_write_json_memory(
+			   [&dynamic_array](auto& ar) -> bool {
+				   kson_array_of_objects(ar, dynamic_array);
+				   return true;
+			   },
+			   sb,
+			   __func__))
 		{
 			return -1;
 		}
@@ -689,42 +766,116 @@ static int test_kson_json(char* file_memory, size_t& file_size)
 		file_memory[file_size] = '\0';
 	}
 	{
-		std::vector<data_type> dynamic_array;
+		std::vector<data_type> result;
 
 		if(!kson_read_json_memory(
-			   [&dynamic_array](auto &ar) -> bool {
-				   kson_array_of_objects(ar, dynamic_array);
+			   [&result](auto& ar) -> bool {
+				   kson_array_of_objects(ar, result);
 				   return true;
 			   },
-			   file_memory, file_size))
+			   file_memory,
+			   file_size,
+			   __func__))
 		{
 			return -1;
 		}
 
-		if(dynamic_array.size() != std::size(expected_array))
+		if(result.size() != std::size(expected_array))
 		{
 			serrf(
 				"mismatching array, expected: %zu, result: %zu\n",
 				std::size(expected_array),
-				dynamic_array.size());
+				result.size());
 			return -1;
 		}
 		for(size_t i = 0; i < std::size(expected_array); ++i)
 		{
-			if(dynamic_array.at(i) != expected_array[i])
+			if(result.at(i) != expected_array[i])
 			{
 				serrf("mismatching entry at: %zu\n", i);
 				return -1;
 			}
 		}
 	}
-	
+
 	return 0;
 }
 
-static int test_kson_binary(char* file_memory, size_t& file_size)
+static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 {
-	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, -1, ""}};
+	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, 2, ""}};
+
+	{
+		rj::StringBuffer sb;
+		// copy the contents in.
+		std::vector<data_type> dynamic_array(
+			expected_array, expected_array + std::size(expected_array));
+
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
+		if(!file) return -1;
+
+		if(!kson_write_binary_stream(
+			   [&dynamic_array](auto& ar) -> bool {
+				   kson_array_of_objects(ar, dynamic_array);
+				   return true;
+			   },
+			   file.get()))
+		{
+			return -1;
+		}
+
+		int cursor = file->tell();
+		if(cursor < 0)
+		{
+			return -1;
+		}
+		file_size = cursor;
+		file_memory[file_size] = '\0';
+	}
+	{
+		std::vector<data_type> result;
+
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
+		if(!file) return -1;
+		if(!kson_read_binary_stream(
+			   [&result](auto& ar) -> bool {
+				   kson_array_of_objects(ar, result);
+				   return true;
+			   },
+			   file.get()))
+		{
+			return -1;
+		}
+
+		if(result.size() != std::size(expected_array))
+		{
+			serrf(
+				"mismatching array, expected: %zu, result: %zu\n",
+				std::size(expected_array),
+				result.size());
+			return -1;
+		}
+		for(size_t i = 0; i < std::size(expected_array); ++i)
+		{
+			if(result.at(i) != expected_array[i])
+			{
+				serrf("mismatching entry at: %zu\n", i);
+				return -1;
+			}
+		}
+	}
+
+	std::string tmp = base64_encode(file_memory, file_size);
+	file_size = (tmp.size() > file_size - 1 ? file_size - 1 : tmp.size());
+	memcpy(file_memory, tmp.c_str(), file_size);
+	file_memory[file_size] = '\0';
+
+	return 0;
+}
+
+static int test_kson_binary_memory(char* file_memory, size_t& file_size)
+{
+	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, 2, ""}};
 
 	{
 		rj::StringBuffer sb;
@@ -733,11 +884,12 @@ static int test_kson_binary(char* file_memory, size_t& file_size)
 			expected_array, expected_array + std::size(expected_array));
 
 		if(!kson_write_binary_memory(
-			   [&dynamic_array](auto &ar) -> bool {
+			   [&dynamic_array](auto& ar) -> bool {
 				   kson_array_of_objects(ar, dynamic_array);
 				   return true;
 			   },
-			   sb))
+			   sb,
+			   __func__))
 		{
 			return -1;
 		}
@@ -747,35 +899,38 @@ static int test_kson_binary(char* file_memory, size_t& file_size)
 		file_memory[file_size] = '\0';
 	}
 	{
-		std::vector<data_type> dynamic_array;
+		std::vector<data_type> result;
 
 		if(!kson_read_binary_memory(
-			   [&dynamic_array](auto &ar) -> bool {
-				   kson_array_of_objects(ar, dynamic_array);
+			   [&result](auto& ar) -> bool {
+				   kson_array_of_objects(ar, result);
 				   return true;
 			   },
-			   file_memory, file_size))
+			   file_memory,
+			   file_size,
+			   __func__))
 		{
 			return -1;
 		}
 
-		if(dynamic_array.size() != std::size(expected_array))
+		if(result.size() != std::size(expected_array))
 		{
 			serrf(
 				"mismatching array, expected: %zu, result: %zu\n",
 				std::size(expected_array),
-				dynamic_array.size());
+				result.size());
 			return -1;
 		}
 		for(size_t i = 0; i < std::size(expected_array); ++i)
 		{
-			if(dynamic_array.at(i) != expected_array[i])
+			if(result.at(i) != expected_array[i])
 			{
 				serrf("mismatching entry at: %zu\n", i);
 				return -1;
 			}
 		}
 	}
+
 	std::string tmp = base64_encode(file_memory, file_size);
 	file_size = (tmp.size() > file_size - 1 ? file_size - 1 : tmp.size());
 	memcpy(file_memory, tmp.c_str(), file_size);
@@ -1289,8 +1444,10 @@ int main(int, char**)
 		{"test_array_1", test_array_1},
 		{"test_array_of_objects_1", test_array_of_objects_1},
 		{"test_array_of_objects_2", test_array_of_objects_2},
-		{"test_kson_json", test_kson_json},
-		{"test_kson_binary", test_kson_binary},
+		{"test_kson_json_stream", test_kson_json_stream},
+		{"test_kson_json_memory", test_kson_json_memory},
+		{"test_kson_binary_stream", test_kson_binary_stream},
+		{"test_kson_binary_memory", test_kson_binary_memory},
 		{"test_read_1", test_read_1},
 		{"test_error_1", test_error_1}};
 

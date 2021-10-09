@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <cstdint>
+#include <limits>
 
 // assert is bad, but sometimes an explosion is the only choice, eg: PTR IS NULL
 #define ASSERT(x) assert(x)
