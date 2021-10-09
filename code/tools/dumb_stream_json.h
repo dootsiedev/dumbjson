@@ -64,23 +64,26 @@ inline std::string b64decode(const void* data, const size_t len)
 	const size_t L = ((len + 3) / 4 - pad) * 4;
 	std::string str(L / 4 * 3 + pad, '\0');
 
+	unsigned char* out = (unsigned char*)&str[0];
+
 	for(size_t i = 0, j = 0; i < L; i += 4)
 	{
 		int n = B64index[p[i]] << 18 | B64index[p[i + 1]] << 12 | B64index[p[i + 2]] << 6 |
 				B64index[p[i + 3]];
-		str[j++] = n >> 16;
-		str[j++] = n >> 8 & 0xFF;
-		str[j++] = n & 0xFF;
+		out[j++] = n >> 16;
+		out[j++] = n >> 8 & 0xFF;
+		out[j++] = n & 0xFF;
 	}
 	if(pad)
 	{
 		int n = B64index[p[L]] << 18 | B64index[p[L + 1]] << 12;
-		str[str.size() - 1] = n >> 16;
+		out[str.size() - 1] = n >> 16;
 
 		if(len > L + 2 && p[L + 2] != '=')
 		{
 			n |= B64index[p[L + 2]] << 6;
-			str.push_back(n >> 8 & 0xFF);
+			str.push_back(static_cast<char>(n >> 8 & 0xFF));
+			out = (unsigned char*)&str[0];
 		}
 	}
 	return str;
@@ -1030,7 +1033,7 @@ class JsonWriter
 		if(str.size() <= max_size)
 		{
 			std::string tmp = base64_encode(str.data(), str.size());
-			writer.String(str);
+			writer.String(tmp.data(), tmp.size());
 		}
 		else
 		{
@@ -1117,7 +1120,7 @@ class BinaryReader
 		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint32_t>(reader.Take());
+		tmp |= static_cast<uint8_t>(reader.Take());
 		i = static_cast<int32_t>(tmp);
 	}
 	template<class Callback>
@@ -1126,7 +1129,7 @@ class BinaryReader
 		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint32_t>(reader.Take());
+		tmp |= static_cast<uint8_t>(reader.Take());
 		error = error || !cb(static_cast<int32_t>(tmp));
 	}
 	void Uint(unsigned& u)
@@ -1134,7 +1137,7 @@ class BinaryReader
 		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint32_t>(reader.Take());
+		tmp |= static_cast<uint8_t>(reader.Take());
 		u = tmp;
 	}
 	template<class Callback>
@@ -1143,7 +1146,7 @@ class BinaryReader
 		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint32_t>(reader.Take());
+		tmp |= static_cast<uint8_t>(reader.Take());
 		error = error || !cb(tmp);
 	}
 	void Int64(int64_t& i)
