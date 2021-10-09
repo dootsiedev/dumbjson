@@ -664,7 +664,65 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	ar.EndObject();
 }
 
-static int test_array_of_objects_3(char* file_memory, size_t& file_size)
+static int test_kson_json(char* file_memory, size_t& file_size)
+{
+	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, -1, ""}};
+
+	{
+		rj::StringBuffer sb;
+		// copy the contents in.
+		std::vector<data_type> dynamic_array(
+			expected_array, expected_array + std::size(expected_array));
+
+		if(!kson_write_json_memory(
+			   [&dynamic_array](auto &ar) -> bool {
+				   kson_array_of_objects(ar, dynamic_array);
+				   return true;
+			   },
+			   sb))
+		{
+			return -1;
+		}
+
+		file_size = (sb.GetLength() > file_size - 1 ? file_size - 1 : sb.GetLength());
+		memcpy(file_memory, sb.GetString(), file_size);
+		file_memory[file_size] = '\0';
+	}
+	{
+		std::vector<data_type> dynamic_array;
+
+		if(!kson_read_json_memory(
+			   [&dynamic_array](auto &ar) -> bool {
+				   kson_array_of_objects(ar, dynamic_array);
+				   return true;
+			   },
+			   file_memory, file_size))
+		{
+			return -1;
+		}
+
+		if(dynamic_array.size() != std::size(expected_array))
+		{
+			serrf(
+				"mismatching array, expected: %zu, result: %zu\n",
+				std::size(expected_array),
+				dynamic_array.size());
+			return -1;
+		}
+		for(size_t i = 0; i < std::size(expected_array); ++i)
+		{
+			if(dynamic_array.at(i) != expected_array[i])
+			{
+				serrf("mismatching entry at: %zu\n", i);
+				return -1;
+			}
+		}
+	}
+	
+	return 0;
+}
+
+static int test_kson_binary(char* file_memory, size_t& file_size)
 {
 	const data_type expected_array[] = {{1, 1.1, "aaa"}, {2, 2.2, "bbb"}, {-3, -1, ""}};
 
@@ -718,240 +776,11 @@ static int test_array_of_objects_3(char* file_memory, size_t& file_size)
 			}
 		}
 	}
-#if 0
-	{
-		rj::StringBuffer sb;
-		JsonWriter<rj::StringBuffer, rj::PrettyWriter<rj::StringBuffer>> ar(sb);
-
-		// copy the contents in.
-		std::vector<data_type> dynamic_array(
-			expected_array, expected_array + std::size(expected_array));
-
-		ar.StartObject();
-		ar.Key("meh");
-		kson_array_of_objects(ar, dynamic_array);
-		ar.EndObject();
-
-		// some sort of error got printed,
-		// most likely a string size error.
-		// Note that most errors come from rapidjson in the form of an assert.
-		if(serr_check_error())
-		{
-			serr("error writing json\n");
-			return -1;
-		}
-
-		if(!ar.is_complete())
-		{
-			serr("failed to write a complete json file\n");
-			return -1;
-		}
-
-		file_size = (sb.GetLength() > file_size - 1 ? file_size - 1 : sb.GetLength());
-		memcpy(file_memory, sb.GetString(), file_size);
-		file_memory[file_size] = '\0';
-	}
-	{
-		// rj::StringStream is dangerous to use with BinaryReader due to buffer overrun.
-		KsonMemoryStream ss(file_memory, file_memory + file_size);
-
-		JsonReader ar(ss);
-
-		std::vector<data_type> dynamic_array;
-
-		ar.StartObject();
-		ar.Key("meh");
-
-		kson_array_of_objects(ar, dynamic_array);
-		
-		ar.EndObject();
-
-		if(ar.reader.HasParseError())
-		{
-			serrf(
-				"Failed to parse json: `%s`\n"
-				"Message: %s\n"
-				"Offset: %zu\n",
-				__func__,
-				GetParseError_En(ar.reader.GetParseErrorCode()),
-				ar.reader.GetErrorOffset());
-			// rewind the stream
-			ss = KsonMemoryStream(file_memory, file_memory + file_size);
-			print_json_error(ss, ar.reader.GetErrorOffset());
-			return -1;
-		}
-
-		// if there was an error expected to be printed
-		if(!ar.good())
-		{
-			serr("caught error\n");
-
-			size_t offset = ss.Tell();
-			serrf("Offset: %zu\n", offset);
-			// rewind the stream
-			ss = KsonMemoryStream(file_memory, file_memory + file_size);
-			print_json_error(ss, offset);
-			return -1;
-		}
-
-		// some sort of error got printed.
-		if(serr_check_error())
-		{
-			serr("uncaught error\n");
-			return -1;
-		}
-
-		if(!ar.is_complete())
-		{
-			serr("incomplete json\n");
-			return -1;
-		}
-
-		if(dynamic_array.size() != std::size(expected_array))
-		{
-			serrf(
-				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(expected_array),
-				dynamic_array.size());
-			return -1;
-		}
-		for(size_t i = 0; i < std::size(expected_array); ++i)
-		{
-			if(dynamic_array.at(i) != expected_array[i])
-			{
-				serrf("mismatching entry at: %zu\n", i);
-				return -1;
-			}
-		}
-	}
-	//
-	// BINARY ============================================
-	//
-
-	{
-#if 1
-		rj::StringBuffer sb;
-#else
-		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
-		if(!file) return -1;
-		char write_buffer[1000];
-		KsonCB_WriteStream sb(
-			[&file](char* buf, size_t write_num) -> size_t {
-				// you can print an error here too.
-				return file->write(buf, 1, write_num);
-			},
-			write_buffer,
-			sizeof(write_buffer));
-#endif
-		BinaryWriter ar(sb);
-
-		// copy the contents in.
-		std::vector<data_type> dynamic_array(
-			expected_array, expected_array + std::size(expected_array));
-
-		kson_array_of_objects(ar, dynamic_array);
-
-		// you can't be certain that the error came from binarywriter,
-		// but the only errors possible are if you used a string too large,
-		// or if the file stream printed an error, or custom callback error.
-		if(serr_check_error())
-		{
-			serr("error writing binary\n");
-			return -1;
-		}
-
-#if 1
-		file_size = (sb.GetLength() > file_size - 1 ? file_size - 1 : sb.GetLength());
-		memcpy(file_memory, sb.GetString(), file_size);
-		file_memory[file_size] = '\0';
-#else
-		// flush is neccessary for tell() to work
-		sb.Flush();
-		int get_file_size;
-		if((get_file_size = file->tell()) == -1) return -1;
-		file_size = get_file_size;
-#endif
-	}
-	{
-#if 1
-		// rj::StringStream is dangerous to use with BinaryReader due to buffer overrun.
-		KsonMemoryStream ss(file_memory, file_memory + file_size);
-#else
-		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
-		if(!file) return -1;
-		char read_buffer[1000];
-		KsonCB_ReadStream ss(
-			[&file](char* buf, size_t read_num) -> size_t { return file->read(buf, 1, read_num); },
-			read_buffer,
-			sizeof(read_buffer));
-#endif
-
-		BinaryReader ar(ss);
-
-		std::vector<data_type> dynamic_array;
-
-		kson_array_of_objects(ar, dynamic_array);
-
-		// this will NOT check if all the data has been read,
-		// this only detects if an error was printed.
-		if(!ar.good())
-		{
-			// note that printing the offset by ss.Tell() is pointless
-			// because it will not stop on the first error.
-			serr("caught error\n");
-			return -1;
-		}
-
-#if 0
-		// the error should be printed in serr by RWops.
-		if(!file->good())
-		{
-			serr("caught file error\n");
-			return -1;
-		}
-#endif
-
-		// some sort of error got printed.
-		if(serr_check_error())
-		{
-			serr("uncaught error\n");
-			return -1;
-		}
-
-		// For KsonMemoryStream ss.Tell() will go beyond the max size of the file
-		// if you continue to read, but it will not overrun the buffer.
-		// Unlike JsonReader, BinaryReader will overrun the buffer.
-		// This gets checked after serr_check_error because no error will be printed.
-		if(ss.Tell() != file_size)
-		{
-			serrf("mismatching file end, size: %zu cursor: %zu\n", file_size, ss.Tell());
-			return -1;
-		}
-
-		if(dynamic_array.size() != std::size(expected_array))
-		{
-			serrf(
-				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(expected_array),
-				dynamic_array.size());
-			return -1;
-		}
-		for(size_t i = 0; i < std::size(expected_array); ++i)
-		{
-			if(dynamic_array.at(i) != expected_array[i])
-			{
-				serrf("mismatching entry at: %zu\n", i);
-				return -1;
-			}
-		}
-	}
-#endif
-#if 0
 	std::string tmp = base64_encode(file_memory, file_size);
 	file_size = (tmp.size() > file_size - 1 ? file_size - 1 : tmp.size());
 	memcpy(file_memory, tmp.c_str(), file_size);
 	file_memory[file_size] = '\0';
-#endif
+
 	return 0;
 }
 
@@ -1460,7 +1289,8 @@ int main(int, char**)
 		{"test_array_1", test_array_1},
 		{"test_array_of_objects_1", test_array_of_objects_1},
 		{"test_array_of_objects_2", test_array_of_objects_2},
-		{"test_array_of_objects_3", test_array_of_objects_3},
+		{"test_kson_json", test_kson_json},
+		{"test_kson_binary", test_kson_binary},
 		{"test_read_1", test_read_1},
 		{"test_error_1", test_error_1}};
 
