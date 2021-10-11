@@ -43,22 +43,44 @@ bool serialize_data_group(Archive& ar, std::vector<data_type>& group_data)
 	ar.StartObject();
 	ar.Key("size");
 	uint16_t size = std::size(group_data);
-	
-	//you must store the size unlike normal json.
-	ar.Uint16(size);
+	const size_t max_size = 2;
 
-	//this could be put into Uint16_CB as well,
-	//but that only checks for the reader.
-	if(size > 2)
+	//as the writer you are responsible for your own error checks.
+	if(Archive::IsWriter)
 	{
-		serr("error\n");
+		if(size > max_size)
+		{
+			serrf("error group_data too big: %u > %zu\n", val, max_size);
+			//assert because all writer errors lead to asserts.
+			ASSERT(size <= max_size);
+			return false;
+		}
+	}
+
+	//you must know the size of the array before reading it unlike normal json.
+	if(!ar.Uint16_CB(
+		[&size](uint16_t val)->bool
+			{
+				//only called while reading
+				if(val > max_size)
+				{
+					serrf("error group_data too big: %u > %zu\n", val, max_size);
+					return false;
+				}
+				//set the value
+				size = val;
+				return true;
+			},
+		//write this size
+		size))
+	{
+		//exit early by checking for errors.
 		return false;
 	}
 
+	//the reader needs to allocate the entries to read into
 	if(Archive::IsReader)
 	{
-		//the reader needs to make space for the
-		//pieces to be read.
 		data.resize(size);
 	}
 
@@ -633,6 +655,27 @@ struct internal_string_setter
 	}
 };
 
+// used for checking if the double is good.
+template<class Callback, class T>
+struct internal_finite_double_wrapper
+{
+	Callback call;
+	explicit internal_finite_double_wrapper(Callback cb)
+	: call(cb)
+	{
+	}
+	bool operator()(T d)
+	{
+		if(!std::isfinite(d))
+		{
+			serrf("invalid float: %f\n", d);
+			ASSERT(std::isfinite(d) && "invalid float");
+			return false;
+		}
+		return call(d);
+	}
+};
+
 template<class JsonStream>
 class JsonReader
 {
@@ -666,303 +709,352 @@ public:
 		return reader.IterativeParseComplete();
 	}
 
-	void Null()
+	bool Null()
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_null_json_handler handler;
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
 
-	void Bool(bool& b)
+	bool Bool(bool& b)
 	{
-		Bool_CB(internal_simple_setter{b}, {});
+		return Bool_CB(internal_simple_setter{b}, {});
 	}
 	template<class Callback>
-	void Bool_CB(Callback cb, bool)
+	bool Bool_CB(Callback cb, bool)
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_bool_json_handler handler(cb);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void Int(int& i)
+	bool Int(int& i)
 	{
-		Int_CB(internal_simple_setter{i}, {});
+		return Int_CB(internal_simple_setter{i}, {});
 	}
 	template<class Callback>
-	void Int_CB(Callback cb, int)
+	bool Int_CB(Callback cb, int)
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_int_json_handler handler(cb);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void Uint(unsigned& u)
+	bool Uint(unsigned& u)
 	{
-		Uint_CB(internal_simple_setter{u}, {});
+		return Uint_CB(internal_simple_setter{u}, {});
 	}
 	template<class Callback>
-	void Uint_CB(Callback cb, unsigned)
+	bool Uint_CB(Callback cb, unsigned)
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_uint_json_handler handler(cb);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void Int64(int64_t& i)
+	bool Int64(int64_t& i)
 	{
-		Int64_CB(internal_simple_setter{i}, {});
+		return Int64_CB(internal_simple_setter{i}, {});
 	}
 	template<class Callback>
-	void Int64_CB(Callback cb, int64_t)
+	bool Int64_CB(Callback cb, int64_t)
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_int64_json_handler handler(cb);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void Uint64(uint64_t& u)
+	bool Uint64(uint64_t& u)
 	{
-		Uint64_CB(internal_simple_setter{u}, {});
+		return Uint64_CB(internal_simple_setter{u}, {});
 	}
 	template<class Callback>
-	void Uint64_CB(Callback cb, uint64_t)
+	bool Uint64_CB(Callback cb, uint64_t)
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_uint64_json_handler handler(cb);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
 	// shorts and bytes in json are promoted.
 	// I don't use signed numbers, if you need them, then implement it.
-	void Uint16(uint16_t& u)
+	bool Uint16(uint16_t& u)
 	{
-		Uint16_CB(internal_simple_setter{u}, {});
+		return Uint16_CB(internal_simple_setter{u}, {});
 	}
 	template<class Callback>
-	void Uint16_CB(Callback cb, uint16_t)
+	bool Uint16_CB(Callback cb, uint16_t)
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		// promote to uint
 		internal_uint_promote_json_handler<uint16_t, Callback> handler(cb);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void Uint8(uint8_t& u)
+	bool Uint8(uint8_t& u)
 	{
-		Uint8_CB(internal_simple_setter{u}, {});
+		return Uint8_CB(internal_simple_setter{u}, {});
 	}
 	template<class Callback>
-	void Uint8_CB(Callback cb, uint8_t)
+	bool Uint8_CB(Callback cb, uint8_t)
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		// promote to uint
 		internal_uint_promote_json_handler<uint8_t, Callback> handler(cb);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void Double(double& d)
+	bool Double(double& d)
 	{
-		Double_CB(internal_simple_setter{d}, {});
+		return Double_CB(internal_simple_setter{d}, {});
 	}
 	template<class Callback>
-	void Double_CB(Callback cb, double)
+	bool Double_CB(Callback cb, double)
 	{
-		if(error) return; // preserve error offset.
-		internal_double_json_handler handler(cb);
+		if(error) return false; // preserve error offset.
+		// internal_finite_double_wrapper will check std::isfinite
+		internal_double_json_handler handler(internal_finite_double_wrapper<Callback, double>{cb});
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
 	// float will promote to double, there shouldn't be a problem.
-	void Float(float& d)
+	bool Float(float& d)
 	{
-		Double_CB(internal_simple_setter{d}, {});
+		return Double_CB(internal_simple_setter{d}, {});
 	}
 	template<class Callback>
-	void Float_CB(Callback cb, float)
+	bool Float_CB(Callback cb, float)
 	{
 		// promote to double
-		Double_CB(cb, {});
+		return Double_CB(cb, {});
 	}
-	void String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
+	bool String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		String_CB(internal_string_setter{str}, {}, max_size);
+		return String_CB(internal_string_setter{str}, {}, max_size);
 	}
 	template<class Callback>
-	void String_CB(
+	bool String_CB(
 		Callback cb, std::string_view, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_string_json_handler handler{cb, max_size};
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
 	// json requires valid utf8, and binary wont work.
-	void Data(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
+	bool Data(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		Data_CB(internal_string_setter{str}, {}, max_size);
+		return Data_CB(internal_string_setter{str}, {}, max_size);
 	}
 	template<class Callback>
-	void Data_CB(
+	bool Data_CB(
 		Callback cb, std::string_view, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_data_json_handler handler(cb, max_size);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
 
 	// this must be a global string.
 	// because keys are for annotation, they are never read.
 	template<size_t i>
-	void Key(const char (&str)[i])
+	bool Key(const char (&str)[i])
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_key_json_handler<i> handler(str);
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
 
-	void StartObject()
+	bool StartObject()
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_startobject_json_handler handler;
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void EndObject()
+	bool EndObject()
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_endobject_json_handler handler;
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void StartArray()
+	bool StartArray()
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_startarray_json_handler handler;
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
-	void EndArray()
+	bool EndArray()
 	{
-		if(error) return; // preserve error offset.
+		if(error) return false; // preserve error offset.
 		internal_endarray_json_handler handler;
 		if(reader.IterativeParseComplete())
 		{
-			serrf("write after complete: %s\n", __func__);
+			serrf("read after complete: %s\n", __func__);
 			error = true;
+			return false;
 		}
-		else if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
+		if(!reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler))
 		{
 			error = true;
+			return false;
 		}
+		return true;
 	}
 };
 
@@ -988,106 +1080,113 @@ public:
 		return writer.IsComplete();
 	}
 
-	void Null()
+	bool Null()
 	{
 		writer.Null();
+		return true;
 	}
 
-	void Bool(bool b)
+	bool Bool(bool b)
 	{
 		writer.Bool(b);
+		return true;
 	}
 	template<class Callback>
-	void Bool_CB(Callback, bool b)
+	bool Bool_CB(Callback, bool b)
 	{
-		Bool(b);
+		return Bool(b);
 	}
-	void Int(int i)
+	bool Int(int i)
 	{
 		writer.Int(i);
+		return true;
 	}
 	template<class Callback>
-	void Int_CB(Callback, int i)
+	bool Int_CB(Callback, int i)
 	{
-		Int(i);
+		return Int(i);
 	}
-	void Uint(unsigned u)
+	bool Uint(unsigned u)
 	{
 		writer.Uint(u);
+		return true;
 	}
 	template<class Callback>
-	void Uint_CB(Callback, unsigned u)
+	bool Uint_CB(Callback, unsigned u)
 	{
-		Uint(u);
+		return Uint(u);
 	}
-	void Int64(int64_t i)
+	bool Int64(int64_t i)
 	{
 		writer.Int64(i);
+		return true;
 	}
 	template<class Callback>
-	void Int64_CB(Callback, int64_t i)
+	bool Int64_CB(Callback, int64_t i)
 	{
-		Int64(i);
+		return Int64(i);
 	}
-	void Uint64(uint64_t u)
+	bool Uint64(uint64_t u)
 	{
 		writer.Uint64(u);
+		return true;
 	}
 	template<class Callback>
-	void Uint64_CB(Callback, uint64_t u)
+	bool Uint64_CB(Callback, uint64_t u)
 	{
-		Uint64(u);
+		return Uint64(u);
 	}
 	// shorts and bytes in json are promoted.
 	// I don't use signed numbers, if you need them, then implement it.
-	void Uint16(uint16_t u)
+	bool Uint16(uint16_t u)
 	{
 		writer.Uint(u);
+		return true;
 	}
 	template<class Callback>
-	void Uint16_CB(Callback, uint16_t u)
+	bool Uint16_CB(Callback, uint16_t u)
 	{
-		Uint16(u);
+		return Uint16(u);
 	}
-	void Uint8(uint8_t u)
+	bool Uint8(uint8_t u)
 	{
 		writer.Uint(u);
+		return true;
 	}
 	template<class Callback>
-	void Uint8_CB(Callback, uint8_t u)
+	bool Uint8_CB(Callback, uint8_t u)
 	{
-		Uint8(u);
+		return Uint8(u);
 	}
-	void Double(double d)
+	bool Double(double d)
 	{
 		// it's possible that NaN or Inf can cause an error.
 		if(!writer.Double(d))
 		{
-			// assert because the message gives no information.
-			// and its the programmers responsibility to not create NANs.
-			ASSERT(false && "failed to write double");
 			serrf("failed to write double: %f\n", d);
+			ASSERT(false && "failed to write double");
+			return false;
 		}
+		return true;
 	}
 	template<class Callback>
-	void Double_CB(Callback, double d)
+	bool Double_CB(Callback, double d)
 	{
-		Double(d);
+		return Double(d);
 	}
 	// float will promote to double.
-	void Float(float d)
+	bool Float(float d)
 	{
-		Double(d);
+		return Double(d);
 	}
 	template<class Callback>
-	void Float_CB(Callback, float d)
+	bool Float_CB(Callback, float d)
 	{
-		Double(d);
+		return Double(d);
 	}
-	void String(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
+	bool String(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
-		ASSERT(str.size() <= max_size);
 		if(str.size() <= max_size)
 		{
 			writer.String(str.data(), str.size());
@@ -1097,20 +1196,22 @@ public:
 			// not much information, but we are writing this
 			// so you should pull out a debugger and check it yourself.
 			serrf("string too large, max: %zu result: %zu\n", max_size, str.size());
+			ASSERT(str.size() <= max_size);
 			Null();
+			return false;
 		}
+		return true;
 	}
 	template<class Callback>
-	void String_CB(
+	bool String_CB(
 		Callback, std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		String(str, max_size);
+		return String(str, max_size);
 	}
 	// json requires valid utf8, and binary wont work.
-	void Data(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
+	bool Data(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
-		ASSERT(str.size() <= max_size);
 		if(str.size() <= max_size)
 		{
 			std::string tmp = base64_encode(str.data(), str.size());
@@ -1119,50 +1220,50 @@ public:
 		else
 		{
 			serrf("string too large, max: %zu result: %zu\n", max_size, str.size());
+			ASSERT(str.size() <= max_size);
 			Null();
+			return false;
 		}
+		return true;
 	}
 	template<class Callback>
-	void Data_CB(
+	bool Data_CB(
 		Callback, std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		Data(str, max_size);
+		return Data(str, max_size);
 	}
 
 	// this must be a global string.
 	// because keys are for annotation, they are never read.
 	template<size_t i>
-	void Key(const char (&str)[i])
+	bool Key(const char (&str)[i])
 	{
 		writer.Key(str);
+		return true;
 	}
 
-	void StartObject()
+	bool StartObject()
 	{
 		writer.StartObject();
+		return true;
 	}
-	void EndObject()
+	bool EndObject()
 	{
 		writer.EndObject();
+		return true;
 	}
-	void StartArray()
+	bool StartArray()
 	{
 		writer.StartArray();
+		return true;
 	}
-	void EndArray()
+	bool EndArray()
 	{
 		writer.EndArray();
+		return true;
 	}
 };
 
-// NOLINTEND
-
-// with binary, you must error check the stream for errors because
-// when EOF is reached good() and finish() will not be affected (due to rapidjson),
-// you can use rj::FileReadStream and check the FILE* with ferror() + errno,
-// but beware rj::StringStream. An alternative is KsonMemoryStream or custom stream.
-// finish() and good() are affected by custom callback errors (but the offset will move).
-// String() does not check valid utf8 encoding, there is no difference with Data().
 template<class StreamReader>
 class BinaryReader
 {
@@ -1185,53 +1286,73 @@ public:
 		return !error;
 	}
 
-	void Null() {}
+	bool Null()
+	{
+		return !error;
+	}
 
-	void Bool(bool& b)
+	bool Bool(bool& b)
 	{
-		b = reader.Take();
+		return Int_CB(internal_simple_setter{b}, {});
 	}
 	template<class Callback>
-	void Bool_CB(Callback cb, bool)
+	bool Bool_CB(Callback cb, bool)
 	{
-		error = error || !cb(reader.Take());
+		if(error) return false;
+		bool b = reader.Take();
+		if(!reader.good() || !cb(b))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
 	}
-	void Int(int& i)
+	bool Int(int& i)
 	{
-		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
-		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
-		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint8_t>(reader.Take());
-		i = static_cast<int32_t>(tmp);
-	}
-	template<class Callback>
-	void Int_CB(Callback cb, int)
-	{
-		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
-		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
-		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint8_t>(reader.Take());
-		error = error || !cb(static_cast<int32_t>(tmp));
-	}
-	void Uint(unsigned& u)
-	{
-		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
-		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
-		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint8_t>(reader.Take());
-		u = tmp;
+		return Int_CB(internal_simple_setter{i}, {});
 	}
 	template<class Callback>
-	void Uint_CB(Callback cb, unsigned)
+	bool Int_CB(Callback cb, int)
 	{
+		if(error) return false;
 		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		error = error || !cb(tmp);
+		if(!reader.good() || !cb(static_cast<int32_t>(tmp)))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
 	}
-	void Int64(int64_t& i)
+	bool Uint(unsigned& u)
 	{
+		return Uint_CB(internal_simple_setter{u}, {});
+	}
+	template<class Callback>
+	bool Uint_CB(Callback cb, unsigned)
+	{
+		if(error) return false;
+		uint32_t tmp = static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 24;
+		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
+		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
+		tmp |= static_cast<uint8_t>(reader.Take());
+		if(!reader.good() || !cb(tmp))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
+	}
+	bool Int64(int64_t& i)
+	{
+		return Int64_CB(internal_simple_setter{i}, {});
+	}
+	template<class Callback>
+	bool Int64_CB(Callback cb, int64_t)
+	{
+		if(error) return false;
 		uint64_t tmp = static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 56;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 48;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 40;
@@ -1240,11 +1361,21 @@ public:
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		i = static_cast<int64_t>(tmp);
+		if(!reader.good() || !cb(static_cast<int64_t>(tmp)))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
+	}
+	bool Uint64(uint64_t& u)
+	{
+		return Uint64_CB(internal_simple_setter{u}, {});
 	}
 	template<class Callback>
-	void Int64_CB(Callback cb, int64_t)
+	bool Uint64_CB(Callback cb, uint64_t)
 	{
+		if(error) return false;
 		uint64_t tmp = static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 56;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 48;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 40;
@@ -1253,125 +1384,102 @@ public:
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		error = error || !cb(static_cast<int64_t>(tmp));
-	}
-	void Uint64(uint64_t& u)
-	{
-		uint64_t tmp = static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 56;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 48;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 40;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 32;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 24;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 16;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint8_t>(reader.Take());
-		u = tmp;
-	}
-	template<class Callback>
-	void Uint64_CB(Callback cb, uint64_t)
-	{
-		uint64_t tmp = static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 56;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 48;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 40;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 32;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 24;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 16;
-		tmp |= static_cast<uint64_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint8_t>(reader.Take());
-		error = error || !cb(tmp);
+		if(!reader.good() || !cb(tmp))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
 	}
 	// shorts and bytes in json are promoted.
 	// I don't use signed numbers, if you need them, then implement it.
-	void Uint16(uint16_t& u)
+	bool Uint16(uint16_t& u)
 	{
+		return Uint16_CB(internal_simple_setter{u}, {});
+	}
+	template<class Callback>
+	bool Uint16_CB(Callback cb, uint16_t)
+	{
+		if(error) return false;
 		uint16_t tmp = static_cast<uint16_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		u = tmp;
+		if(!reader.good() || !cb(tmp))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
+	}
+	bool Uint8(uint8_t& u)
+	{
+		return Uint8_CB(internal_simple_setter{u}, {});
 	}
 	template<class Callback>
-	void Uint16_CB(Callback cb, uint16_t)
+	bool Uint8_CB(Callback cb, uint8_t)
 	{
-		uint16_t tmp = static_cast<uint16_t>(static_cast<uint8_t>(reader.Take())) << 8;
-		tmp |= static_cast<uint8_t>(reader.Take());
-		error = error || !cb(tmp);
+		if(error) return false;
+		uint8_t tmp = reader.Take();
+		if(!reader.good() || !cb(tmp))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
 	}
-	void Uint8(uint8_t& u)
+	bool Double(double& d)
 	{
-		u = static_cast<uint8_t>(reader.Take());
+		return Double_CB(internal_simple_setter{d}, {});
 	}
 	template<class Callback>
-	void Uint8_CB(Callback cb, uint8_t)
-	{
-		error = error || !cb(static_cast<uint8_t>(reader.Take()));
-	}
-	void Double(double& d)
+	bool Double_CB(Callback cb, double)
 	{
 		uint64_t tmp;
-		Uint64(tmp);
-		// for portablility it is possible to use
-		// frexp and ldexp which turns the float into 2 numbers (mantissa and exponent)
-		// but I am just gonna pretend like x86 and ARM are 100% compatible,
-		// and this is probably faster and more accurate, and supports NAN
-		// But precicion and nan is not completely portable (I think).
-		d = *reinterpret_cast<double*>(&tmp);
-
-		// TODO (dootsie): write a handler that does this check for the callback
-		ASSERT(std::isfinite(d) && "failed to read double");
-		if(!std::isfinite(d))
+		if(!Uint64(tmp))
 		{
-			serrf("failed to read double: %f\n", d);
+			return false;
 		}
+
+		// this feels wrong, but internal_finite_double_wrapper
+		// will check std::finite, which should make it ok most of the time :)
+		double d = *reinterpret_cast<double*>(&tmp);
+
+		if(!reader.good() || !internal_finite_double_wrapper<Callback, double>{cb}(d))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
+	}
+	bool Float(float& d)
+	{
+		return Float_CB(internal_simple_setter{d}, {});
 	}
 	template<class Callback>
-	void Double_CB(Callback cb, double)
-	{
-		uint64_t tmp;
-		Uint64(tmp);
-		error = error || !cb(*reinterpret_cast<double*>(&tmp));
-	}
-	void Float(float& d)
+	bool Float_CB(Callback cb, float)
 	{
 		uint32_t tmp;
-		Uint(tmp);
-		d = *reinterpret_cast<float*>(&tmp);
-
-		ASSERT(std::isfinite(d) && "failed to read float");
-		if(!std::isfinite(d))
+		if(!Uint(tmp))
 		{
-			serrf("failed to read float: %f\n", d);
+			return false;
 		}
-	}
-	template<class Callback>
-	void Float_CB(Callback cb, float)
-	{
-		uint32_t tmp;
-		Uint(tmp);
-		error = error || !cb(*reinterpret_cast<float*>(&tmp));
+
+		// this feels wrong, but internal_finite_double_wrapper
+		// will check std::finite, which should make it ok most of the time :)
+		float d = *reinterpret_cast<float*>(&tmp);
+
+		if(!reader.good() || !internal_finite_double_wrapper<Callback, float>{cb}(d))
+		{
+			error = true;
+			return false;
+		}
+		return !error;
 	}
 	void String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		uint16_t size;
-		if(!error)
-		{
-			Uint16(size);
-			if(size <= max_size)
-			{
-				str.clear();
-				str.reserve(size);
-				for(size_t i = 0; i < size; ++i)
-				{
-					str += reader.Take();
-				}
-			}
-			else
-			{
-				error = true;
-				serrf("string too large, max: %zu result: %" PRIu16 "\n", max_size, size);
-			}
-		}
+		return String_CB(internal_string_setter{str}, {}, max_size);
 	}
 	template<class Callback>
-	void String_CB(
+	bool String_CB(
 		Callback cb, std::string_view, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		// this is a huge buffer, but windows should have a 1 mb large stack so 65kb isn't much.
@@ -1379,23 +1487,28 @@ public:
 		char buf[std::numeric_limits<uint16_t>::max()];
 		uint16_t size;
 
-		if(!error)
+		if(!Uint16(size))
 		{
-			Uint16(size);
-			if(size <= max_size)
-			{
-				for(size_t i = 0; i < size; ++i)
-				{
-					buf[i] = reader.Take();
-				}
-				error = error || !cb(buf, size);
-			}
-			else
-			{
-				error = true;
-				serrf("string too large, max: %zu result: %" PRIu16 "\n", max_size, size);
-			}
+			return false;
 		}
+		if(size > max_size)
+		{
+			error = true;
+			serrf("string too large, max: %zu result: %u\n", max_size, size);
+			return false;
+		}
+
+		for(size_t i = 0; i < size; ++i)
+		{
+			buf[i] = reader.Take();
+		}
+
+		if(!reader.good() || !cb(buf, size))
+		{
+			error = true;
+			return false;
+		}
+		return true;
 	}
 	// json requires valid utf8, and binary wont work.
 	void Data(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
@@ -1412,13 +1525,26 @@ public:
 	// this must be a global string.
 	// because keys are for annotation, they are never read.
 	template<size_t i>
-	void Key(const char (&)[i])
+	bool Key(const char (&)[i])
 	{
+		return !error;
 	}
-	void StartObject() {}
-	void EndObject() {}
-	void StartArray() {}
-	void EndArray() {}
+	bool StartObject()
+	{
+		return !error;
+	}
+	bool EndObject()
+	{
+		return !error;
+	}
+	bool StartArray()
+	{
+		return !error;
+	}
+	bool EndArray()
+	{
+		return !error;
+	}
 };
 
 template<class WriteStream>
@@ -1437,42 +1563,48 @@ public:
 	{
 	}
 
-	void Null() {}
+	bool Null()
+	{
+		return true;
+	}
 
-	void Bool(bool b)
+	bool Bool(bool b)
 	{
 		output.Put(b);
+		return true;
 	}
 	template<class Callback>
-	void Bool_CB(Callback, bool b)
+	bool Bool_CB(Callback, bool b)
 	{
-		Bool(b);
+		return Bool(b);
 	}
-	void Int(int i)
+	bool Int(int i)
 	{
 		output.Put(static_cast<char>(i >> 24));
 		output.Put(static_cast<char>(i >> 16));
 		output.Put(static_cast<char>(i >> 8));
 		output.Put(static_cast<char>(i));
+		return true;
 	}
 	template<class Callback>
-	void Int_CB(Callback, int i)
+	bool Int_CB(Callback, int i)
 	{
-		Int(i);
+		return Int(i);
 	}
-	void Uint(unsigned u)
+	bool Uint(unsigned u)
 	{
 		output.Put(static_cast<char>(u >> 24));
 		output.Put(static_cast<char>(u >> 16));
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
+		return true;
 	}
 	template<class Callback>
-	void Uint_CB(Callback, unsigned u)
+	bool Uint_CB(Callback, unsigned u)
 	{
-		Uint(u);
+		return Uint(u);
 	}
-	void Int64(int64_t i)
+	bool Int64(int64_t i)
 	{
 		output.Put(static_cast<char>(i >> 56));
 		output.Put(static_cast<char>(i >> 48));
@@ -1482,13 +1614,14 @@ public:
 		output.Put(static_cast<char>(i >> 16));
 		output.Put(static_cast<char>(i >> 8));
 		output.Put(static_cast<char>(i));
+		return true;
 	}
 	template<class Callback>
-	void Int64_CB(Callback, int64_t i)
+	bool Int64_CB(Callback, int64_t i)
 	{
-		Int64(i);
+		return Int64(i);
 	}
-	void Uint64(uint64_t u)
+	bool Uint64(uint64_t u)
 	{
 		output.Put(static_cast<char>(u >> 56));
 		output.Put(static_cast<char>(u >> 48));
@@ -1498,39 +1631,43 @@ public:
 		output.Put(static_cast<char>(u >> 16));
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
+		return true;
 	}
 	template<class Callback>
-	void Uint64_CB(Callback, uint64_t u)
+	bool Uint64_CB(Callback, uint64_t u)
 	{
-		Uint64(u);
+		return Uint64(u);
 	}
 	// shorts and bytes in json are promoted.
 	// I don't use signed numbers, if you need them, then implement it.
-	void Uint16(uint16_t u)
+	bool Uint16(uint16_t u)
 	{
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
+		return true;
 	}
 	template<class Callback>
-	void Uint16_CB(Callback, uint16_t u)
+	bool Uint16_CB(Callback, uint16_t u)
 	{
-		Uint16(u);
+		return Uint16(u);
 	}
-	void Uint8(uint8_t u)
+	bool Uint8(uint8_t u)
 	{
 		output.Put(static_cast<char>(u));
+		return true;
 	}
 	template<class Callback>
-	void Uint8_CB(Callback, uint8_t u)
+	bool Uint8_CB(Callback, uint8_t u)
 	{
-		Uint8(u);
+		return Uint8(u);
 	}
-	void Double(double d)
+	bool Double(double d)
 	{
-		ASSERT(std::isfinite(d) && "failed to write double");
 		if(!std::isfinite(d))
 		{
 			serrf("failed to write double: %f\n", d);
+			ASSERT(std::isfinite(d) && "failed to write double");
+			return false;
 		}
 
 		uint64_t fhold = *reinterpret_cast<uint64_t*>(&d);
@@ -1542,38 +1679,43 @@ public:
 		output.Put(static_cast<char>(fhold >> 16));
 		output.Put(static_cast<char>(fhold >> 8));
 		output.Put(static_cast<char>(fhold));
+		return true;
 	}
 	template<class Callback>
-	void Double_CB(Callback, double d)
+	bool Double_CB(Callback, double d)
 	{
-		Double(d);
+		return Double(d);
 	}
 	// float will promote to double.
-	void Float(float d)
+	bool Float(float d)
 	{
-		ASSERT(std::isfinite(d) && "failed to write float");
 		if(!std::isfinite(d))
 		{
 			serrf("failed to write float: %f\n", d);
+			ASSERT(std::isfinite(d) && "failed to write float");
+			return false;
 		}
 		uint32_t fhold = *reinterpret_cast<uint32_t*>(&d);
 		output.Put(static_cast<char>(fhold >> 24));
 		output.Put(static_cast<char>(fhold >> 16));
 		output.Put(static_cast<char>(fhold >> 8));
 		output.Put(static_cast<char>(fhold));
+		return true;
 	}
 	template<class Callback>
-	void Float_CB(Callback, float d)
+	bool Float_CB(Callback, float d)
 	{
-		Float(d);
+		return Float(d);
 	}
-	void String(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
+	bool String(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
-		ASSERT(str.size() <= max_size);
 		if(str.size() <= max_size)
 		{
-			Uint16(str.size());
+			if(!Uint16(str.size()))
+			{
+				return false;
+			}
 			size_t size = str.size();
 			for(size_t i = 0; i < size; ++i)
 			{
@@ -1583,45 +1725,57 @@ public:
 		else
 		{
 			serrf("string too large, max: %zu result: %zu\n", max_size, str.size());
+			ASSERT(str.size() <= max_size);
+			return false;
 		}
+		return true;
 	}
 	template<class Callback>
-	void String_CB(
+	bool String_CB(
 		Callback, std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		String(str, max_size);
+		return String(str, max_size);
 	}
 	// json requires valid utf8, and binary wont work.
-	void Data(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
+	bool Data(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		String(str, max_size);
+		return String(str, max_size);
 	}
 	template<class Callback>
-	void Data_CB(
+	bool Data_CB(
 		Callback, std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
-		String(str, max_size);
+		return String(str, max_size);
 	}
 
 	// this must be a global string.
 	// because keys are for annotation, they are never read.
 	template<size_t i>
-	void Key(const char (&)[i])
+	bool Key(const char (&)[i])
 	{
+		return true;
 	}
 
-	void StartObject() {}
-	void EndObject() {}
-	void StartArray() {}
-	void EndArray() {}
+	bool StartObject()
+	{
+		return true;
+	}
+	bool EndObject()
+	{
+		return true;
+	}
+	bool StartArray()
+	{
+		return true;
+	}
+	bool EndArray()
+	{
+		return true;
+	}
 };
 
-// This is like rj::MemoryStream but Tell() will go beyond the size (for error checking).
 // the problem with rj::StringStream is that it won't work with BinaryReader,
-// because rj::StringStream doesn't check for overrun because NULL is used for EOF,
-// but BinaryReader cant check for a NULL terminater because the data is binary.
-// So for BinaryReader, you have to use this or else Bad Things Will Happen (TM)
-// This is 99% copy pasted from rj::MemoryStream, but modified for safety.
+// because rj::StringStream doesn't check for overrun because NULL is used for EOF
 struct KsonMemoryStream
 {
 	typedef char Ch;
@@ -1629,11 +1783,15 @@ struct KsonMemoryStream
 	const char* src; //!< Current read position.
 	const char* head; //!< Original head of the string.
 	const char* end;
+	// I could replace this with something like end = NULL,
+	// but I don't care that much about micro optimization.
+	bool error;
 
 	explicit KsonMemoryStream(const char* src_, const char* end_)
 	: src(src_)
 	, head(src_)
 	, end(end_)
+	, error(false)
 	{
 	}
 
@@ -1644,7 +1802,7 @@ struct KsonMemoryStream
 	char Take()
 	{
 		// the comma operator is very important
-		return (src >= end ? (src++, '\0') : *src++);
+		return (src >= end ? (error = true, '\0') : *src++);
 	}
 	size_t Tell() const
 	{
@@ -1669,6 +1827,26 @@ struct KsonMemoryStream
 		ASSERT(false);
 		return 0;
 	}
+
+	bool good() const
+	{
+		return !error;
+	}
+};
+
+// I just need the error function
+struct KsonStringBuffer : rj::StringBuffer
+{
+	explicit KsonStringBuffer(size_t capacity = kDefaultCapacity)
+	: rj::StringBuffer(0, capacity)
+	{
+	}
+	static const size_t kDefaultCapacity = 256;
+
+	bool good() const
+	{
+		return true;
+	}
 };
 
 // the callback signature is <size_t(char* buffer, size_t read_num)> returns bytes read.
@@ -1688,6 +1866,7 @@ public:
 	, readCount_(0)
 	, count_(0)
 	, eof_(false)
+	, error_(false)
 	{
 		Read();
 	}
@@ -1727,6 +1906,11 @@ public:
 		return 0;
 	}
 
+	bool good() const
+	{
+		return !error_;
+	}
+
 private:
 	void Read()
 	{
@@ -1748,6 +1932,10 @@ private:
 				eof_ = true;
 			}
 		}
+		else
+		{
+			error_ = true;
+		}
 	}
 
 	Callback cb;
@@ -1758,6 +1946,7 @@ private:
 	size_t readCount_;
 	size_t count_; //!< Number of characters read
 	bool eof_;
+	bool error_;
 };
 
 // the callback signature is <size_t(char* buffer, size_t write_num)> returns bytes written.
@@ -1774,6 +1963,7 @@ public:
 	, buffer_(buffer)
 	, bufferEnd_(buffer + bufferSize)
 	, current_(buffer_)
+	, error(false)
 	{
 	}
 
@@ -1791,8 +1981,7 @@ public:
 			size_t result = cb(buffer_, static_cast<size_t>(current_ - buffer_));
 			if(result < static_cast<size_t>(current_ - buffer_))
 			{
-				// failure deliberately ignored at this time
-				// added to avoid warn_unused_result build errors
+				error = true;
 			}
 			current_ = buffer_;
 		}
@@ -1825,11 +2014,17 @@ public:
 		return 0;
 	}
 
+	bool good() const
+	{
+		return !error;
+	}
+
 private:
 	Callback cb;
 	char* buffer_;
 	char* bufferEnd_;
 	char* current_;
+	bool error;
 };
 
 template<class Reader, size_t max_line_length = 1024>
@@ -2088,7 +2283,7 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = NULL)
 // callback has a signature <void(auto &ar)>
 // return false if you printed to serr, propogates to return.
 template<class Callback>
-bool kson_write_json_memory(Callback cb, rj::StringBuffer& sb, const char* info = "<unspecified>")
+bool kson_write_json_memory(Callback cb, KsonStringBuffer& sb, const char* info = "<unspecified>")
 {
 	ASSERT(info != NULL);
 	JsonWriter ar(sb);
@@ -2176,6 +2371,9 @@ bool kson_read_binary_memory(
 	{
 		serrf("Failed to parse binary: `%s`\n", info);
 		serrf("Stream size: %zu\n", file_size);
+		// only possible due to KsonMemoryStream
+		// rj::StringBuffer wont work.
+		serrf("Cursor: %zu\n", stream.Tell());
 		return false;
 	}
 
@@ -2187,13 +2385,13 @@ bool kson_read_binary_memory(
 			"Error: uncaught serr error\n",
 			info);
 		serrf("Stream size: %zu\n", file_size);
+		// only possible due to KsonMemoryStream
+		// rj::StringBuffer wont work.
+		serrf("Cursor: %zu\n", stream.Tell());
 		return false;
 	}
 
-	// For KsonMemoryStream ss.Tell() will go beyond the max size of the file
-	// if you continue to read, but it will not overrun the buffer.
-	// Unlike JsonReader, BinaryReader will overrun the buffer.
-	// This gets checked after serr_check_error because no error will be printed.
+	// Did we read every byte?
 	if(stream.Tell() != file_size)
 	{
 		serrf(
@@ -2247,6 +2445,7 @@ bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 		return false;
 	}
 
+	// did we read every byte?
 	int cursor = file->tell();
 	file->seek(0, SEEK_END);
 	int end = file->tell();
@@ -2267,7 +2466,7 @@ bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 // callback has a signature <void(auto &ar)>
 // return false if you printed to serr, propogates to return.
 template<class Callback>
-bool kson_write_binary_memory(Callback cb, rj::StringBuffer& sb, const char* info = "<unspecified>")
+bool kson_write_binary_memory(Callback cb, KsonStringBuffer& sb, const char* info = "<unspecified>")
 {
 	ASSERT(info != NULL);
 	BinaryWriter ar(sb);

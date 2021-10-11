@@ -650,17 +650,21 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	// which is the requirement of manually sized arrays.
 	ar.Key("size");
 	uint16_t test_array_size = std::size(data);
-	ar.Uint16_CB(
-		[&test_array_size](uint16_t result) {
-			if(result <= 3)
-			{
-				test_array_size = result;
-				return true;
-			}
-			serrf("max size: 3, result: %u\n", result);
-			return false;
-		},
-		test_array_size);
+	if(!ar.Uint16_CB(
+		   [&test_array_size](uint16_t result) {
+			   if(result > 3)
+			   {
+				   serrf("max size: 3, result: %u\n", result);
+				   return false;
+			   }
+			   test_array_size = result;
+			   return true;
+		   },
+		   test_array_size))
+	{
+		// exit early
+		return;
+	}
 
 	if(Archive::IsReader)
 	{
@@ -752,7 +756,7 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 		std::vector<data_type> dynamic_array(
 			kson_expected_array, kson_expected_array + std::size(kson_expected_array));
 
-		rj::StringBuffer sb;
+		KsonStringBuffer sb;
 
 		if(!kson_write_json_memory(
 			   [&dynamic_array](auto& ar) -> bool {
@@ -807,6 +811,7 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 
 static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 {
+	size_t old_file_size = file_size;
 	{
 		rj::StringBuffer sb;
 		// copy the contents in.
@@ -866,11 +871,13 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 			}
 		}
 	}
-#if 0
+#if 1
 	std::string tmp = base64_encode(file_memory, file_size);
-	//TODO (dootsie): this is unsafe
-	memcpy(file_memory, tmp.c_str(), tmp.size());
+	file_size = (tmp.size() > old_file_size-1) ? old_file_size-1 : tmp.size();
+	memcpy(file_memory, tmp.c_str(), file_size);
 	file_memory[file_size] = '\0';
+#else
+	(void)old_file_size;
 #endif
 
 	return 0;
@@ -878,8 +885,9 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 
 static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 {
+	size_t old_file_size = file_size;
 	{
-		rj::StringBuffer sb;
+		KsonStringBuffer sb;
 		// copy the contents in.
 		std::vector<data_type> dynamic_array(
 			kson_expected_array, kson_expected_array + std::size(kson_expected_array));
@@ -932,10 +940,13 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 		}
 	}
 
-#if 0
+#if 1
 	std::string tmp = base64_encode(file_memory, file_size);
-	memcpy(file_memory, tmp.c_str(), tmp.size());
+	file_size = (tmp.size() > old_file_size-1) ? old_file_size-1 : tmp.size();
+	memcpy(file_memory, tmp.c_str(), file_size);
 	file_memory[file_size] = '\0';
+#else
+	(void)old_file_size;
 #endif
 
 	return 0;
