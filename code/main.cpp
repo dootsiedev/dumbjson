@@ -642,7 +642,7 @@ void data_type::kson_serialize(Archive& ar)
 }
 
 template<class Archive>
-static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
+bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 {
 	ar.StartObject();
 
@@ -663,7 +663,7 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 		   test_array_size))
 	{
 		// exit early
-		return;
+		return false;
 	}
 
 	if(Archive::IsReader)
@@ -680,6 +680,7 @@ static void kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	ar.EndArray();
 
 	ar.EndObject();
+	return true;
 }
 
 static const data_type kson_expected_array[] = {
@@ -697,8 +698,7 @@ static int test_kson_json_stream(char* file_memory, size_t& file_size)
 
 		if(!kson_write_json_stream(
 			   [&dynamic_array](auto& ar) -> bool {
-				   kson_array_of_objects(ar, dynamic_array);
-				   return true;
+				   return kson_array_of_objects(ar, dynamic_array);
 			   },
 			   file.get()))
 		{
@@ -719,10 +719,7 @@ static int test_kson_json_stream(char* file_memory, size_t& file_size)
 		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
 		if(!file) return -1;
 		if(!kson_read_json_stream(
-			   [&result](auto& ar) -> bool {
-				   kson_array_of_objects(ar, result);
-				   return true;
-			   },
+			   [&result](auto& ar) -> bool { return kson_array_of_objects(ar, result); },
 			   file.get()))
 		{
 			return -1;
@@ -760,8 +757,7 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 
 		if(!kson_write_json_memory(
 			   [&dynamic_array](auto& ar) -> bool {
-				   kson_array_of_objects(ar, dynamic_array);
-				   return true;
+				   return kson_array_of_objects(ar, dynamic_array);
 			   },
 			   sb,
 			   __func__))
@@ -777,10 +773,7 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 		std::vector<data_type> result;
 
 		if(!kson_read_json_memory(
-			   [&result](auto& ar) -> bool {
-				   kson_array_of_objects(ar, result);
-				   return true;
-			   },
+			   [&result](auto& ar) -> bool { return kson_array_of_objects(ar, result); },
 			   file_memory,
 			   file_size,
 			   __func__))
@@ -823,8 +816,7 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 
 		if(!kson_write_binary_stream(
 			   [&dynamic_array](auto& ar) -> bool {
-				   kson_array_of_objects(ar, dynamic_array);
-				   return true;
+				   return kson_array_of_objects(ar, dynamic_array);
 			   },
 			   file.get()))
 		{
@@ -845,10 +837,7 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
 		if(!file) return -1;
 		if(!kson_read_binary_stream(
-			   [&result](auto& ar) -> bool {
-				   kson_array_of_objects(ar, result);
-				   return true;
-			   },
+			   [&result](auto& ar) -> bool { return kson_array_of_objects(ar, result); },
 			   file.get()))
 		{
 			return -1;
@@ -873,7 +862,7 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 	}
 #if 1
 	std::string tmp = base64_encode(file_memory, file_size);
-	file_size = (tmp.size() > old_file_size-1) ? old_file_size-1 : tmp.size();
+	file_size = (tmp.size() > old_file_size - 1) ? old_file_size - 1 : tmp.size();
 	memcpy(file_memory, tmp.c_str(), file_size);
 	file_memory[file_size] = '\0';
 #else
@@ -894,8 +883,7 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 
 		if(!kson_write_binary_memory(
 			   [&dynamic_array](auto& ar) -> bool {
-				   kson_array_of_objects(ar, dynamic_array);
-				   return true;
+				   return kson_array_of_objects(ar, dynamic_array);
 			   },
 			   sb,
 			   __func__))
@@ -911,10 +899,7 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 		std::vector<data_type> result;
 
 		if(!kson_read_binary_memory(
-			   [&result](auto& ar) -> bool {
-				   kson_array_of_objects(ar, result);
-				   return true;
-			   },
+			   [&result](auto& ar) -> bool { return kson_array_of_objects(ar, result); },
 			   file_memory,
 			   file_size,
 			   __func__))
@@ -942,7 +927,7 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 
 #if 1
 	std::string tmp = base64_encode(file_memory, file_size);
-	file_size = (tmp.size() > old_file_size-1) ? old_file_size-1 : tmp.size();
+	file_size = (tmp.size() > old_file_size - 1) ? old_file_size - 1 : tmp.size();
 	memcpy(file_memory, tmp.c_str(), file_size);
 	file_memory[file_size] = '\0';
 #else
