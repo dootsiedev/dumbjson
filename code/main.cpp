@@ -1,8 +1,9 @@
 #include "global.h"
-#include "tools/dumb_stream_json.h"
-#include "tools/RWops.h"
-#include "tools/dumb_doc_json.h"
+#include "tools/kson_serializer.h"
+#include "tools/dumb_json.h"
 #include "3rd_party/utf8/core.hpp"
+
+#include "tools/RWops.h"
 
 #include <cfloat>
 #include <cmath>

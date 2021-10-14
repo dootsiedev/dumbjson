@@ -1,3 +1,8 @@
-.clangd
-/.vscode
+/.vscode/*
+
+#keep launch.json, it should work for windows and linux
+!/.vscode
+!/.vscode/launch.json
+
+# clangd indexing
 /.cache
