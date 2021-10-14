@@ -650,6 +650,7 @@ bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	// this is a drawback of using stream json,
 	// which is the requirement of manually sized arrays.
 	ar.Key("size");
+	ASSERT(std::size(data) <= std::numeric_limits<uint16_t>::max());
 	uint16_t test_array_size = static_cast<uint16_t>(std::size(data));
 	if(!ar.Uint16_CB(
 		   [&test_array_size](uint16_t result) {
