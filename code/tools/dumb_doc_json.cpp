@@ -4,6 +4,7 @@
 #include "RWops.h"
 
 #include <algorithm>
+#include <sstream>
 #include <rapidjson/error/en.h>
 #include <rapidjson/prettywriter.h>
 
@@ -614,7 +615,7 @@ void JsonState::FormatIndexError(size_t index, const char* format, ...)
 std::string JsonState::dump_path()
 {
 	// not efficent by any means, but errors aren't efficent.
-	std::string path;
+	std::ostringstream path;
 	for(auto it = json_unwind_table.begin(); it != json_unwind_table.end(); ++it)
 	{
 		if(it->name != NULL)
@@ -622,20 +623,18 @@ std::string JsonState::dump_path()
 			// if at the start, ignore the root.
 			if(it != json_unwind_table.begin())
 			{
-				path += '.';
+				path << '.';
 			}
-			path.append(it->name);
+			path << it->name;
 		}
 		else
 		{
 			++it;
 			ASSERT(it != json_unwind_table.end() && "bad stack");
-			path += '[';
-			path += std::to_string(it->index);
-			path += ']';
+			path << '[' << it->index << ']';
 		}
 	}
-	return path;
+	return path.str();
 }
 
 void JsonState::internal_print_missing_member_error(const char* function, const char* key)

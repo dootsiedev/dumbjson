@@ -14,6 +14,10 @@
 #include <cstdint>
 #include <limits>
 
+// rapidjson macros.
+#define RAPIDJSON_ASSERT ASSERT
+#define RAPIDJSON_HAS_STDSTRING 1
+
 // assert is bad, but sometimes an explosion is the only choice, eg: PTR IS NULL
 #define ASSERT(x) assert(x)
 

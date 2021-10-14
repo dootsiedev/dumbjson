@@ -21,6 +21,7 @@
 //-CTRL+F TODO
 
 // example
+#include "rapidjson/rapidjson.h"
 #if 0
 //shared simple serialization:
 //creates: {"i":N, "d":N}
@@ -137,8 +138,6 @@ bool serialize_data_group(Archive& ar, std::vector<data_type>& group_data)
 #endif
 
 #include <cmath>
-#define RAPIDJSON_ASSERT ASSERT
-#define RAPIDJSON_HAS_STDSTRING 1
 
 #include <rapidjson/reader.h>
 
@@ -162,31 +161,31 @@ static const int B64index[256] = {
 
 inline std::string b64decode(const void* data, const size_t len)
 {
-	unsigned char* p = (unsigned char*)data;
-	int pad = len > 0 && (len % 4 || p[len - 1] == '=');
+	const unsigned char* p = static_cast<const unsigned char*>(data);
+	int pad = static_cast<int>(len > 0 && ((len % 4) != 0 || p[len - 1] == '='));
 	const size_t L = ((len + 3) / 4 - pad) * 4;
 	std::string str(L / 4 * 3 + pad, '\0');
 
-	unsigned char* out = (unsigned char*)&str[0];
+	unsigned char* out = reinterpret_cast<unsigned char*>(str.data());
 
 	for(size_t i = 0, j = 0; i < L; i += 4)
 	{
 		int n = B64index[p[i]] << 18 | B64index[p[i + 1]] << 12 | B64index[p[i + 2]] << 6 |
 				B64index[p[i + 3]];
-		out[j++] = n >> 16;
-		out[j++] = n >> 8 & 0xFF;
-		out[j++] = n & 0xFF;
+		out[j++] = static_cast<unsigned char>(n >> 16);
+		out[j++] = static_cast<unsigned char>(n >> 8 & 0xFF);
+		out[j++] = static_cast<unsigned char>(n & 0xFF);
 	}
-	if(pad)
+	if(pad == 1)
 	{
 		int n = B64index[p[L]] << 18 | B64index[p[L + 1]] << 12;
-		out[str.size() - 1] = n >> 16;
+		out[str.size() - 1] = static_cast<unsigned char>(n >> 16);
 
 		if(len > L + 2 && p[L + 2] != '=')
 		{
 			n |= B64index[p[L + 2]] << 6;
 			str.push_back(static_cast<char>(n >> 8 & 0xFF));
-			out = (unsigned char*)&str[0];
+			out = reinterpret_cast<unsigned char*>(str.data());
 		}
 	}
 	return str;
@@ -215,8 +214,10 @@ static const unsigned char base64_table[65] =
  */
 inline std::string base64_encode(const void* src, size_t len)
 {
-	unsigned char *out, *pos;
-	const unsigned char *end, *in;
+	unsigned char *out;
+	unsigned char *pos;
+	const unsigned char *end;
+	const unsigned char *in;
 
 	size_t olen;
 
@@ -226,10 +227,10 @@ inline std::string base64_encode(const void* src, size_t len)
 
 	std::string outStr;
 	outStr.resize(olen);
-	out = (unsigned char*)&outStr[0];
+	out = reinterpret_cast<unsigned char*>(outStr.data());
 
-	end = (unsigned char*)src + len;
-	in = (unsigned char*)src;
+	end = static_cast<const unsigned char*>(src) + len;
+	in = static_cast<const unsigned char*>(src);
 	pos = out;
 	while(end - in >= 3)
 	{
@@ -240,7 +241,7 @@ inline std::string base64_encode(const void* src, size_t len)
 		in += 3;
 	}
 
-	if(end - in)
+	if(end != in)
 	{
 		*pos++ = base64_table[in[0] >> 2];
 		if(end - in == 1)
@@ -307,7 +308,7 @@ public:
 	}
 	bool Uint(unsigned u)
 	{
-		if(u <= std::numeric_limits<int>::max())
+		if(u <= static_cast<unsigned>(std::numeric_limits<int>::max()))
 		{
 			return call(u);
 		}
@@ -459,7 +460,7 @@ public:
 	{
 		if(u <= std::numeric_limits<T>::max())
 		{
-			return call(u);
+			return call(static_cast<T>(u));
 		}
 		serrf(
 			"number too large, max: %zu, result: %u\n",
@@ -919,13 +920,13 @@ public:
 		// promote to double
 		return Double_CB(cb, {});
 	}
-	bool String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
+	bool String(std::string& str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		return String_CB(internal_string_setter{str}, {}, max_size);
 	}
 	template<class Callback>
 	bool String_CB(
-		Callback cb, std::string_view, uint16_t max_size = std::numeric_limits<uint16_t>::max())
+		Callback cb, std::string_view, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		if(error) return false; // preserve error offset.
 		internal_string_json_handler handler{cb, max_size};
@@ -943,13 +944,13 @@ public:
 		return true;
 	}
 	// json requires valid utf8, and binary wont work.
-	bool Data(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
+	bool Data(std::string& str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		return Data_CB(internal_string_setter{str}, {}, max_size);
 	}
 	template<class Callback>
 	bool Data_CB(
-		Callback cb, std::string_view, uint16_t max_size = std::numeric_limits<uint16_t>::max())
+		Callback cb, std::string_view, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		if(error) return false; // preserve error offset.
 		internal_data_json_handler handler(cb, max_size);
@@ -1189,7 +1190,7 @@ public:
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
 		if(str.size() <= max_size)
 		{
-			writer.String(str.data(), str.size());
+			writer.String(str.data(), static_cast<rj::SizeType>(str.size()));
 		}
 		else
 		{
@@ -1401,9 +1402,9 @@ public:
 	bool Uint16_CB(Callback cb, uint16_t)
 	{
 		if(error) return false;
-		uint16_t tmp = static_cast<uint16_t>(static_cast<uint8_t>(reader.Take())) << 8;
+		unsigned tmp = static_cast<uint16_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		if(!reader.good() || !cb(tmp))
+		if(!reader.good() || !cb(static_cast<uint16_t>(tmp)))
 		{
 			error = true;
 			return false;
@@ -1712,7 +1713,7 @@ public:
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
 		if(str.size() <= max_size)
 		{
-			if(!Uint16(str.size()))
+			if(!Uint16(static_cast<uint16_t>(str.size())))
 			{
 				return false;
 			}

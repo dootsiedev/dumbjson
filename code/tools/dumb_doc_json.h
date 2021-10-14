@@ -1,8 +1,5 @@
 #pragma once
 
-#define RAPIDJSON_ASSERT ASSERT
-#define RAPIDJSON_HAS_STDSTRING 1
-
 //#define MYDEBUG
 
 #include <rapidjson/document.h>
@@ -203,7 +200,7 @@ public:
 	rj::GenericArray<Const, ValueT>
 		SetArrayRange(const rj::GenericArray<Const, ValueT>& array, Iter start, Iter end)
 	{
-		array.Reserve(end - start, rjdoc.GetAllocator());
+		array.Reserve(static_cast<rapidjson::SizeType>(end - start), rjdoc.GetAllocator());
 		while(start != end)
 		{
 			array.PushBack(*start++, rjdoc.GetAllocator());

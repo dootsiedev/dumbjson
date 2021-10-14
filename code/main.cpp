@@ -627,7 +627,7 @@ void data_type::kson_serialize(Archive& ar)
 	// rapidjson supports this internally with \xa0\xa1
 	size_t test = 3;
 	ar.String_CB(
-		[this](const char* str, uint16_t size) {
+		[this](const char* str, size_t size) {
 			if(!utf8::is_valid(str, str + size))
 			{
 				serr("invalid utf8\n");
@@ -649,7 +649,7 @@ bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	// this is a drawback of using stream json,
 	// which is the requirement of manually sized arrays.
 	ar.Key("size");
-	uint16_t test_array_size = std::size(data);
+	uint16_t test_array_size = static_cast<uint16_t>(std::size(data));
 	if(!ar.Uint16_CB(
 		   [&test_array_size](uint16_t result) {
 			   if(result > 3)
@@ -1467,6 +1467,6 @@ int main(int, char**)
 		slogf("[[[\n%s\n]]]\n", file_memory);
 	}
 
-	slogf("done\n");
+	slogf("done %s\n", std::to_string(0).c_str());
 	return 0;
 }
