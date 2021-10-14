@@ -195,7 +195,7 @@ public:
 			current_ += avail;
 			Flush();
 			n -= avail;
-			avail = static_cast<size_t>(bufferEnd_ - current_);
+			avail = bufferEnd_ - current_;
 		}
 
 		if(n > 0)
@@ -209,7 +209,7 @@ public:
 	{
 		if(current_ != buffer_)
 		{
-			size_t result = fp_->write(buffer_, 1, static_cast<size_t>(current_ - buffer_));
+			size_t result = fp_->write(buffer_, 1, current_ - buffer_);
 			if(result < static_cast<size_t>(current_ - buffer_))
 			{
 				// failure deliberately ignored at this time
@@ -338,11 +338,14 @@ bool JsonState::open_file(RWops* file, const char* info, rj::Type expected)
 					size_t line_length = file_position - start_position;
 
 					line_length = std::min(line_length, sizeof(buffer) - 1);
+					#pragma GCC diagnostic push ignored -Wshorten-64-to-32
 
-					if(!CHECK(file->seek(static_cast<int>(start_position), SEEK_SET) != -1))
+					if(!CHECK(file->seek(start_position, SEEK_SET) != -1))
 					{
 						return false;
 					}
+					#pragma GCC diagnostic pop
+					
 					if(!CHECK(file->read(buffer, 1, line_length) == line_length))
 					{
 						return false;

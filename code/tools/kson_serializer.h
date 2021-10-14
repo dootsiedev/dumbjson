@@ -19,9 +19,10 @@
 // TODO:
 //-I am noticing that binary bloat is becoming a problem, anything obvious I can do?
 //-CTRL+F TODO
+//-should I replace int and unsigned with int32_t and uint32_t?
 
 // example
-#include "rapidjson/rapidjson.h"
+#include <rapidjson/rapidjson.h>
 #if 0
 //shared simple serialization:
 //creates: {"i":N, "d":N}
@@ -157,8 +158,6 @@ static const int B64index[256] = {
 	19, 20, 21, 22, 23, 24, 25, 0,	0,	0,	0,	63, 0,	26, 27, 28, 29, 30, 31, 32, 33,
 	34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51};
 
-// NOLINTBEGIN
-
 inline std::string b64decode(const void* data, const size_t len)
 {
 	const unsigned char* p = static_cast<const unsigned char*>(data);
@@ -260,8 +259,6 @@ inline std::string base64_encode(const void* src, size_t len)
 	return outStr;
 }
 
-// NOLINTEND
-
 template<class Callback>
 class internal_bool_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_bool_json_handler<Callback>>
@@ -308,11 +305,13 @@ public:
 	}
 	bool Uint(unsigned u)
 	{
-		if(u <= static_cast<unsigned>(std::numeric_limits<int>::max()))
+		//I don't know why but without this, it triggers -Wsign-compare on gcc
+		auto max_size = static_cast<decltype(u)>(std::numeric_limits<int>::max());
+		if(u <= max_size)
 		{
 			return call(u);
 		}
-		serrf("number too large, max: %d, result: %u\n", std::numeric_limits<int>::max(), u);
+		serrf("number too large, max: %u, result: %u\n", max_size, u);
 		return false;
 	}
 };
@@ -374,7 +373,7 @@ public:
 			return call(u);
 		}
 		serrf(
-			"number too large, max: %" PRIi64 ", result: %" PRIu64 "\n",
+			"number too large, max: %" PRId64 ", result: %" PRIu64 "\n",
 			std::numeric_limits<int64_t>::max(),
 			u);
 		return false;
@@ -1190,7 +1189,7 @@ public:
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
 		if(str.size() <= max_size)
 		{
-			writer.String(str.data(), static_cast<rj::SizeType>(str.size()));
+			writer.String(str.data(), str.size());
 		}
 		else
 		{
@@ -1402,9 +1401,9 @@ public:
 	bool Uint16_CB(Callback cb, uint16_t)
 	{
 		if(error) return false;
-		unsigned tmp = static_cast<uint16_t>(static_cast<uint8_t>(reader.Take())) << 8;
+		uint16_t tmp = static_cast<uint8_t>(reader.Take()) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		if(!reader.good() || !cb(static_cast<uint16_t>(tmp)))
+		if(!reader.good() || !cb(tmp))
 		{
 			error = true;
 			return false;
@@ -1442,7 +1441,10 @@ public:
 
 		// this feels wrong, but internal_finite_double_wrapper
 		// will check std::finite, which should make it ok most of the time :)
-		double d = *reinterpret_cast<double*>(&tmp);
+		//double d = *reinterpret_cast<double*>(&tmp);
+		//get around -Wstrict-aliasing warning
+		double d;
+		memcpy(&d, &tmp, sizeof(d));
 
 		if(!reader.good() || !internal_finite_double_wrapper<Callback, double>{cb}(d))
 		{
@@ -1466,7 +1468,10 @@ public:
 
 		// this feels wrong, but internal_finite_double_wrapper
 		// will check std::finite, which should make it ok most of the time :)
-		float d = *reinterpret_cast<float*>(&tmp);
+		//float d = *reinterpret_cast<float*>(&tmp);
+		//get around -Wstrict-aliasing warning
+		float d;
+		memcpy(&d, &tmp, sizeof(d));
 
 		if(!reader.good() || !internal_finite_double_wrapper<Callback, float>{cb}(d))
 		{
@@ -1670,8 +1675,11 @@ public:
 			ASSERT(std::isfinite(d) && "failed to write double");
 			return false;
 		}
-
-		uint64_t fhold = *reinterpret_cast<uint64_t*>(&d);
+		//uint64_t fhold = *reinterpret_cast<uint64_t*>(&d);
+		//get around -Wstrict-aliasing warning
+		uint64_t fhold;
+		memcpy(&fhold, &d, sizeof(fhold));
+		
 		output.Put(static_cast<char>(fhold >> 56));
 		output.Put(static_cast<char>(fhold >> 48));
 		output.Put(static_cast<char>(fhold >> 40));
@@ -1696,7 +1704,10 @@ public:
 			ASSERT(std::isfinite(d) && "failed to write float");
 			return false;
 		}
-		uint32_t fhold = *reinterpret_cast<uint32_t*>(&d);
+		//uint32_t fhold = *reinterpret_cast<uint32_t*>(&d);
+		//get around -Wstrict-aliasing warning
+		uint32_t fhold;
+		memcpy(&fhold, &d, sizeof(fhold));
 		output.Put(static_cast<char>(fhold >> 24));
 		output.Put(static_cast<char>(fhold >> 16));
 		output.Put(static_cast<char>(fhold >> 8));
@@ -1713,14 +1724,13 @@ public:
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
 		if(str.size() <= max_size)
 		{
-			if(!Uint16(static_cast<uint16_t>(str.size())))
+			if(!Uint16(str.size()))
 			{
 				return false;
 			}
-			size_t size = str.size();
-			for(size_t i = 0; i < size; ++i)
+			for(char c : str)
 			{
-				output.Put(str[i]);
+				output.Put(c);
 			}
 		}
 		else
@@ -1807,7 +1817,7 @@ struct KsonMemoryStream
 	}
 	size_t Tell() const
 	{
-		return static_cast<size_t>(src - head);
+		return src - head;
 	}
 
 	char* PutBegin()
@@ -1979,7 +1989,7 @@ public:
 	{
 		if(current_ != buffer_)
 		{
-			size_t result = cb(buffer_, static_cast<size_t>(current_ - buffer_));
+			size_t result = cb(buffer_, current_ - buffer_);
 			if(result < static_cast<size_t>(current_ - buffer_))
 			{
 				error = true;
@@ -2029,6 +2039,7 @@ private:
 };
 
 template<class Reader, size_t max_line_length = 1024>
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void print_json_error(Reader& reader, size_t offset)
 {
 	char buffer[max_line_length];

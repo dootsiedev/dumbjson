@@ -4,4 +4,4 @@ CompileFlags:                     # Tweak the parse settings
   #the cwd is the location of the build folder, I think.
   #because that is the location of compile_commands.json
   #this is absolutely incompatible with multi-target generators
-  Add: ["--include=../../../dumbjson/code/global.h"]
+  Add: ["--include=../../dumbjson/code/global.h"]

@@ -135,8 +135,25 @@ else()
     #ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_SUGGEST_FINAL_TYPES -Wsuggest-final-types)
     #ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_SUGGEST_FINAL_METHODS -Wsuggest-final-methods)
 
+
+    #flags that I found from -Wconversion but -Wconversion is too overzealous
+    #and ruins undefined behavior sanitizer analysis because static_cast's will skip checks.
+    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_implicit_float_conversion -Wimplicit-float-conversion)
+    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_implicit_int_float_conversion -Wimplicit-int-float-conversion)
+
+    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_SHADOW_ALL -Wshadow-all)
+
+    if(NOT CXX_WARN_SHADOW_ALL)
+        set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wshadow)
+    endif()
+
+    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_ENUM_CONVERSION -Wenum-conversion)
+    
+
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wall -Wextra -Wpedantic)
-    set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wunused -Wconversion -Wundef -Wmissing-declarations -Wshadow -Wvla)
+    
+    set(may change value )
+    set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wunused -Wundef -Wmissing-declarations -Wvla)
 
     #prevent debugging problems on reldeb.
     if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
@@ -314,7 +331,12 @@ endif()
 #and ATM the package system on linux still uses a really old version of rapidjson
 #But it is possible to use vcpkg and use the "date" as a version number.
 find_package(RapidJSON CONFIG REQUIRED)
-target_include_directories(${PROJECT_NAME} PRIVATE ${RapidJSON_INCLUDE_DIRS})
+
+#I have to set SYSTEM because there is a -Wmaybe-uninitialized warning...
+#target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${RapidJSON_INCLUDE_DIRS})
+
+#for some reason you have to use lowercase rapidjson target...
+target_link_libraries(${PROJECT_NAME} rapidjson)
 
 
 #

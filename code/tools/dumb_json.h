@@ -200,7 +200,7 @@ public:
 	rj::GenericArray<Const, ValueT>
 		SetArrayRange(const rj::GenericArray<Const, ValueT>& array, Iter start, Iter end)
 	{
-		array.Reserve(static_cast<rapidjson::SizeType>(end - start), rjdoc.GetAllocator());
+		array.Reserve(end - start, rjdoc.GetAllocator());
 		while(start != end)
 		{
 			array.PushBack(*start++, rjdoc.GetAllocator());
