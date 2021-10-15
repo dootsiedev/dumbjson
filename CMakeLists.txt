@@ -181,16 +181,6 @@ add_library(ALL_SANITIZERS INTERFACE)
 
 #Also I think that for distribution I could use UBsan + CFI (requires LTO) + safe-stack for low overhead checks.
 
-#if portable, it makes sense to raise a trap because a trap will make a core dump.
-#this affects ubsan and clang's CFI santizers, maybe clang's safe-stack santizer?
-if(PORTABLE)
-    target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=all)
-    target_link_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=all)
-else()
-    target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=all)
-    target_link_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=all)
-endif()
-
 
 option(USE_ASAN "Use address sanitizer" OFF)
 if(USE_ASAN)
@@ -235,6 +225,28 @@ if(USE_UBSAN)
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 			target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=unsigned-integer-overflow -fsanitize=nullability -fsanitize=implicit-conversion -fsanitize=local-bounds)
 		endif()
+
+        #if portable, it makes sense to raise a trap because a trap will make a core dump.
+        #this affects ubsan and clang's CFI santizers, maybe clang's safe-stack santizer?
+        if(PORTABLE)
+            if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+                target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=undefined)
+                target_link_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=undefined)
+            else()
+                #gcc doesn't support CFI so it doesn't matter.
+                target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize-undefined-trap-on-error)
+                target_link_options(ALL_SANITIZERS INTERFACE -fsanitize-undefined-trap-on-error)
+            endif()
+        else()
+            if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+                target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=undefined)
+                target_link_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=undefined)
+            else()
+                #gcc doesn't support CFI so it doesn't matter.
+                target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-undefined-trap-on-error)
+                target_link_options(ALL_SANITIZERS INTERFACE -fno-sanitize-undefined-trap-on-error)
+            endif()
+        endif()
 	endif()
 endif ()
 
@@ -286,8 +298,16 @@ if(USE_CFI)
         
         #on my system, std::to_string would cause an indirect call error...
         #because maybe the function signature is slightly different?
-        target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi -fno-sanitize-cfi-cross-dso)
-        target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi -fno-sanitize-cfi-cross-dso)
+        target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi)
+        target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi)
+
+        if(PORTABLE)
+            target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=cfi)
+            target_link_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=cfi)
+        else()
+            target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=cfi)
+            target_link_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=cfi)
+        endif()
     endif()
 endif()
 
