@@ -1469,6 +1469,6 @@ int main(int, char**)
 		slogf("[[[\n%s\n]]]\n", file_memory);
 	}
 
-	slogf("done %s\n", std::to_string(0).c_str());
+	slog("done\n");
 	return 0;
 }

@@ -94,6 +94,9 @@ endif()
 # flags start
 #
 
+option(NO_RTTI "disable run time type information" OFF)
+option(NO_EXCEPTIONS "disable exception unwinding" OFF)
+
 #put all the flags here.
 set(MY_COMPILER_FLAGS "")
 
@@ -102,6 +105,14 @@ if (MSVC)
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /wd4244) # C4244: 'conversion_type': conversion from 'type1' to 'type2', possible loss of data
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /wd4068) # C4068: unknown pragma
 else()
+    
+    if(NO_RTTI)
+        set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -fno-rtti)
+    endif()
+    if(NO_EXCEPTIONS)
+        set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -fno-exceptions)
+    endif()
+
     #this is a big chunk taken from openrtc2, I hope they don't mind, but I like warnings.
     include(CheckCXXCompilerFlag)
 
@@ -138,8 +149,8 @@ else()
 
     #flags that I found from -Wconversion but -Wconversion is too overzealous
     #and ruins undefined behavior sanitizer analysis because static_cast's will skip checks.
-    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_implicit_float_conversion -Wimplicit-float-conversion)
-    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_implicit_int_float_conversion -Wimplicit-int-float-conversion)
+    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_IMPLICIT_FLOAT_CONVERSION -Wimplicit-float-conversion)
+    ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_IMPLICIT_INT_FLOAT_CONVERSION -Wimplicit-int-float-conversion)
 
     ADD_CHECK_CXX_COMPILER_FLAG(MY_COMPILER_FLAGS CXX_WARN_SHADOW_ALL -Wshadow-all)
 
@@ -151,8 +162,6 @@ else()
     
 
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wall -Wextra -Wpedantic)
-    
-    set(may change value )
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wunused -Wundef -Wmissing-declarations -Wvla)
 
     #prevent debugging problems on reldeb.
@@ -171,6 +180,17 @@ add_library(ALL_SANITIZERS INTERFACE)
 #asan + ubsan + lsan should be a supported combination
 
 #Also I think that for distribution I could use UBsan + CFI (requires LTO) + safe-stack for low overhead checks.
+
+#if portable, it makes sense to raise a trap because a trap will make a core dump.
+#this affects ubsan and clang's CFI santizers, maybe clang's safe-stack santizer?
+if(PORTABLE)
+    target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=all)
+    target_link_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=all)
+else()
+    target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=all)
+    target_link_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=all)
+endif()
+
 
 option(USE_ASAN "Use address sanitizer" OFF)
 if(USE_ASAN)
@@ -199,7 +219,7 @@ if(USE_UBSAN)
         if(NOT FORCE_STATIC_VCRT)
             message(WARNING "atm msvc ubsan requires a static non-debug CRT.")
         endif()
-        message(ERROR "TODO: you can use UBsan on msvc, but you need to link using the hidden ubsanXXXX.lib file, /fsanitize=undefined does not exist")
+        message(ERROR "atm /fsanitize=undefined does not exist on msvc (it does on clang++), you technically can use UBsan on msvc, but you need to link using the hidden ubsanXXXX.lib file and /MT runtime")
 	else()
 
         if(MY_CLANGCL AND NOT FORCE_STATIC_VCRT)
@@ -207,16 +227,14 @@ if(USE_UBSAN)
         endif()
 
 		target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=undefined)
+        #make the application stop
+		target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-recover=all)
+        target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=undefined)
 
 		#these are clang specific, and these flags cause many false positives (especially in header-only libraries...)
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 			target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=unsigned-integer-overflow -fsanitize=nullability -fsanitize=implicit-conversion -fsanitize=local-bounds)
 		endif()
-
-        #make the application stop
-		target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-recover=all)
-		
-		target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=undefined)
 	endif()
 endif ()
 
@@ -232,11 +250,11 @@ if(USE_TSAN)
 endif()
 
 #I think MSAN requires all libraries to also be compiled with msan, unlike other sanitizers.
-#I don't think I can get it to work with SDL2
+#this includes libstdc++ or libc++ and libraries like SDL2
 option(USE_MSAN "Use memory sanitizer" OFF)
 if(USE_MSAN)
-    target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=memory)
-    target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=memory)
+    target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=memory -fsanitize-memory-track-origins)
+    target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=memory -fsanitize-memory-track-origins)
 endif()
 
 option(USE_FORTIFY "Use _FORTIFY_SOURCE=2 on linux" OFF)
@@ -254,19 +272,26 @@ if(USE_CFI)
         target_compile_options(ALL_SANITIZERS INTERFACE -Xclang -cfguard)
         target_link_options(ALL_SANITIZERS INTERFACE -Xlinker /guard:cf)
     else()
-        if(NOT USE_LTO)
-            message(WARNING "you must enable USE_LTO to use cfi")
+        if(USE_LTO)
+            message(WARNING "redundant USE_LTO with cfi")
         endif()
 
-        #visibility default is required (I think gcc does it by default, but not clang.)
-        target_compile_options(ALL_SANITIZERS INTERFACE -fvisibility=default)
+        #note the problem with USE_LTO is that CMAKE_INTERPROCEDURAL_OPTIMIZATION
+        #will use something different than -flto, which will give errors with -fPIE
+        target_compile_options(ALL_SANITIZERS INTERFACE -flto)
+        target_link_options(ALL_SANITIZERS INTERFACE -flto)
 
-        target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi)
-        target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi)
+        #visibility hidden is required (I think gcc does it by default, but not clang.)
+        target_compile_options(ALL_SANITIZERS INTERFACE -fvisibility=hidden)
+        
+        #on my system, std::to_string would cause an indirect call error...
+        #because maybe the function signature is slightly different?
+        target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi -fno-sanitize-cfi-cross-dso)
+        target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi -fno-sanitize-cfi-cross-dso)
     endif()
 endif()
 
-option(USE_SAFESTACK "Use Stack Protection from modifying the return address, enables /GS on msvc" OFF)
+option(USE_SAFESTACK "Use Stack Protection from modifying the return address, forces /GS on msvc" OFF)
 if(USE_SAFESTACK)
     if(MSVC)
         #remember to remove /GS- from release builds. Can't do it by target because cmake is a mess.
@@ -287,6 +312,11 @@ endif()
 include(code/CMakeLists.txt)
 target_link_libraries(${PROJECT_NAME} ALL_SANITIZERS)
 target_compile_options(${PROJECT_NAME} PRIVATE ${MY_COMPILER_FLAGS})
+
+#enable this just in case (clang on linux doesn't use PIE)
+include(CheckPIESupported)
+check_pie_supported()
+set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE TRUE)
 
 #
 # This doesn't apply to dumbjson, but I might need this later.
