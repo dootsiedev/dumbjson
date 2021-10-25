@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <cstdint>
 #include <limits>
+#include <sstream>
 
 // rapidjson macros.
 #define RAPIDJSON_ASSERT ASSERT

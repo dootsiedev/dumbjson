@@ -27,6 +27,7 @@ Checks: >
   -google-objc-*,
   -modernize-use-auto,
   -bugprone-reserved-identifier,
+  -readability-make-member-function-const,
 #you must make sure the last THING to ends with a comma!!!
   
 

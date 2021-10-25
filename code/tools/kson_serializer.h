@@ -20,6 +20,7 @@
 //-I am noticing that binary bloat is becoming a problem, anything obvious I can do?
 //-CTRL+F TODO
 //-should I replace int and unsigned with int32_t and uint32_t?
+//-binary write errors will be spammed.
 
 // example
 #include <rapidjson/rapidjson.h>
@@ -60,6 +61,14 @@ bool serialize_data_group(Archive& ar, std::vector<data_type>& group_data)
 	}
 
 	//you must know the size of the array before reading it unlike normal json.
+	if(!ar.Uint16_CB(kson_min_max_cb<uint16_t>{test_array_size, 0, max_size}, test_array_size))
+	{
+		//exit early by checking for errors.
+		return false;
+	}
+
+#if 0
+	//this could replace above to show how to make a custom lambda:
 	if(!ar.Uint16_CB(
 		[&size](uint16_t val)->bool
 			{
@@ -75,10 +84,7 @@ bool serialize_data_group(Archive& ar, std::vector<data_type>& group_data)
 			},
 		//write this size
 		size))
-	{
-		//exit early by checking for errors.
-		return false;
-	}
+#endif
 
 	//the reader needs to allocate the entries to read into
 	if(Archive::IsReader)
@@ -213,10 +219,10 @@ static const unsigned char base64_table[65] =
  */
 inline std::string base64_encode(const void* src, size_t len)
 {
-	unsigned char *out;
-	unsigned char *pos;
-	const unsigned char *end;
-	const unsigned char *in;
+	unsigned char* out;
+	unsigned char* pos;
+	const unsigned char* end;
+	const unsigned char* in;
 
 	size_t olen;
 
@@ -305,7 +311,7 @@ public:
 	}
 	bool Uint(unsigned u)
 	{
-		//I don't know why but without this, it triggers -Wsign-compare on gcc
+		// I don't know why but without this, it triggers -Wsign-compare on gcc
 		auto max_size = static_cast<decltype(u)>(std::numeric_limits<int>::max());
 		if(u <= max_size)
 		{
@@ -528,29 +534,35 @@ public:
 	}
 };
 
-template<size_t size>
 class internal_key_json_handler
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_key_json_handler<size>>
+: public rj::BaseReaderHandler<rj::UTF8<>, internal_key_json_handler>
 {
 public:
-	const char (&s)[size];
+	const char* s;
+	size_t size;
 
-	explicit internal_key_json_handler(const char (&s_)[size])
+	explicit internal_key_json_handler(const char* s_, size_t size_)
 	: s(s_)
+	, size(size_)
 	{
 	}
 	bool Default()
 	{
-		serrf("expected key type: \"%s\"\n", s);
+		std::string fuck_null_terminators(s, size);
+		serrf("expected key: \"%s\"\n", fuck_null_terminators.c_str());
 		return false;
 	}
 	bool Key(const char* str, rj::SizeType length, bool)
 	{
-		if(length == size - 1 && strncmp(str, s, size - 1) == 0)
+		if(length == size && strncmp(str, s, size) == 0)
 		{
 			return true;
 		}
-		serrf("mismatching keys expected: \"%s\", result: \"%s\"\n", str, s);
+		std::string fuck_null_terminators(s, size);
+		serrf(
+			"mismatching keys expected: \"%s\", result: \"%s\"\n",
+			str,
+			fuck_null_terminators.c_str());
 		return false;
 	}
 };
@@ -967,13 +979,10 @@ public:
 		return true;
 	}
 
-	// this must be a global string.
-	// because keys are for annotation, they are never read.
-	template<size_t i>
-	bool Key(const char (&str)[i])
+	bool Key(std::string_view str)
 	{
 		if(error) return false; // preserve error offset.
-		internal_key_json_handler<i> handler(str);
+		internal_key_json_handler handler(str.data(), str.size());
 		if(reader.IterativeParseComplete())
 		{
 			serrf("read after complete: %s\n", __func__);
@@ -1082,14 +1091,12 @@ public:
 
 	bool Null()
 	{
-		writer.Null();
-		return true;
+		return writer.Null();
 	}
 
 	bool Bool(bool b)
 	{
-		writer.Bool(b);
-		return true;
+		return writer.Bool(b);
 	}
 	template<class Callback>
 	bool Bool_CB(Callback, bool b)
@@ -1098,8 +1105,7 @@ public:
 	}
 	bool Int(int i)
 	{
-		writer.Int(i);
-		return true;
+		return writer.Int(i);
 	}
 	template<class Callback>
 	bool Int_CB(Callback, int i)
@@ -1108,8 +1114,7 @@ public:
 	}
 	bool Uint(unsigned u)
 	{
-		writer.Uint(u);
-		return true;
+		return writer.Uint(u);
 	}
 	template<class Callback>
 	bool Uint_CB(Callback, unsigned u)
@@ -1118,8 +1123,7 @@ public:
 	}
 	bool Int64(int64_t i)
 	{
-		writer.Int64(i);
-		return true;
+		return writer.Int64(i);
 	}
 	template<class Callback>
 	bool Int64_CB(Callback, int64_t i)
@@ -1128,8 +1132,7 @@ public:
 	}
 	bool Uint64(uint64_t u)
 	{
-		writer.Uint64(u);
-		return true;
+		return writer.Uint64(u);
 	}
 	template<class Callback>
 	bool Uint64_CB(Callback, uint64_t u)
@@ -1140,8 +1143,7 @@ public:
 	// I don't use signed numbers, if you need them, then implement it.
 	bool Uint16(uint16_t u)
 	{
-		writer.Uint(u);
-		return true;
+		return writer.Uint(u);
 	}
 	template<class Callback>
 	bool Uint16_CB(Callback, uint16_t u)
@@ -1150,8 +1152,7 @@ public:
 	}
 	bool Uint8(uint8_t u)
 	{
-		writer.Uint(u);
-		return true;
+		return writer.Uint(u);
 	}
 	template<class Callback>
 	bool Uint8_CB(Callback, uint8_t u)
@@ -1160,14 +1161,13 @@ public:
 	}
 	bool Double(double d)
 	{
-		// it's possible that NaN or Inf can cause an error.
-		if(!writer.Double(d))
+		if(!std::isfinite(d))
 		{
 			serrf("failed to write double: %f\n", d);
-			ASSERT(false && "failed to write double");
+			ASSERT(std::isfinite(d) && "failed to write double");
 			return false;
 		}
-		return true;
+		return writer.Double(d);
 	}
 	template<class Callback>
 	bool Double_CB(Callback, double d)
@@ -1177,21 +1177,23 @@ public:
 	// float will promote to double.
 	bool Float(float d)
 	{
+		if(!std::isfinite(d))
+		{
+			serrf("failed to write float: %f\n", d);
+			ASSERT(std::isfinite(d) && "failed to write float");
+			return false;
+		}
 		return Double(d);
 	}
 	template<class Callback>
 	bool Float_CB(Callback, float d)
 	{
-		return Double(d);
+		return Float(d);
 	}
 	bool String(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
-		if(str.size() <= max_size)
-		{
-			writer.String(str.data(), str.size());
-		}
-		else
+		if(str.size() > max_size)
 		{
 			// not much information, but we are writing this
 			// so you should pull out a debugger and check it yourself.
@@ -1200,7 +1202,7 @@ public:
 			Null();
 			return false;
 		}
-		return true;
+		return writer.String(str.data(), str.size());
 	}
 	template<class Callback>
 	bool String_CB(
@@ -1212,19 +1214,15 @@ public:
 	bool Data(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
-		if(str.size() <= max_size)
-		{
-			std::string tmp = base64_encode(str.data(), str.size());
-			writer.String(tmp.data(), tmp.size());
-		}
-		else
+		if(str.size() > max_size)
 		{
 			serrf("string too large, max: %zu result: %zu\n", max_size, str.size());
 			ASSERT(str.size() <= max_size);
 			Null();
 			return false;
 		}
-		return true;
+		std::string tmp = base64_encode(str.data(), str.size());
+		return writer.String(tmp.data(), tmp.size());
 	}
 	template<class Callback>
 	bool Data_CB(
@@ -1233,34 +1231,26 @@ public:
 		return Data(str, max_size);
 	}
 
-	// this must be a global string.
-	// because keys are for annotation, they are never read.
-	template<size_t i>
-	bool Key(const char (&str)[i])
+	bool Key(std::string_view str)
 	{
-		writer.Key(str);
-		return true;
+		return writer.Key(str.data(), str.size());
 	}
 
 	bool StartObject()
 	{
-		writer.StartObject();
-		return true;
+		return writer.StartObject();
 	}
 	bool EndObject()
 	{
-		writer.EndObject();
-		return true;
+		return writer.EndObject();
 	}
 	bool StartArray()
 	{
-		writer.StartArray();
-		return true;
+		return writer.StartArray();
 	}
 	bool EndArray()
 	{
-		writer.EndArray();
-		return true;
+		return writer.EndArray();
 	}
 };
 
@@ -1441,8 +1431,8 @@ public:
 
 		// this feels wrong, but internal_finite_double_wrapper
 		// will check std::finite, which should make it ok most of the time :)
-		//double d = *reinterpret_cast<double*>(&tmp);
-		//get around -Wstrict-aliasing warning
+		// double d = *reinterpret_cast<double*>(&tmp);
+		// get around -Wstrict-aliasing warning
 		double d;
 		memcpy(&d, &tmp, sizeof(d));
 
@@ -1468,8 +1458,8 @@ public:
 
 		// this feels wrong, but internal_finite_double_wrapper
 		// will check std::finite, which should make it ok most of the time :)
-		//float d = *reinterpret_cast<float*>(&tmp);
-		//get around -Wstrict-aliasing warning
+		// float d = *reinterpret_cast<float*>(&tmp);
+		// get around -Wstrict-aliasing warning
 		float d;
 		memcpy(&d, &tmp, sizeof(d));
 
@@ -1480,7 +1470,7 @@ public:
 		}
 		return !error;
 	}
-	void String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
+	bool String(std::string& str, uint16_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		return String_CB(internal_string_setter{str}, {}, max_size);
 	}
@@ -1528,10 +1518,7 @@ public:
 		String_CB(cb, {}, max_size);
 	}
 
-	// this must be a global string.
-	// because keys are for annotation, they are never read.
-	template<size_t i>
-	bool Key(const char (&)[i])
+	bool Key(std::string_view)
 	{
 		return !error;
 	}
@@ -1571,13 +1558,13 @@ public:
 
 	bool Null()
 	{
-		return true;
+		return output.good();
 	}
 
 	bool Bool(bool b)
 	{
 		output.Put(b);
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Bool_CB(Callback, bool b)
@@ -1590,7 +1577,7 @@ public:
 		output.Put(static_cast<char>(i >> 16));
 		output.Put(static_cast<char>(i >> 8));
 		output.Put(static_cast<char>(i));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Int_CB(Callback, int i)
@@ -1603,7 +1590,7 @@ public:
 		output.Put(static_cast<char>(u >> 16));
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Uint_CB(Callback, unsigned u)
@@ -1620,7 +1607,7 @@ public:
 		output.Put(static_cast<char>(i >> 16));
 		output.Put(static_cast<char>(i >> 8));
 		output.Put(static_cast<char>(i));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Int64_CB(Callback, int64_t i)
@@ -1637,7 +1624,7 @@ public:
 		output.Put(static_cast<char>(u >> 16));
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Uint64_CB(Callback, uint64_t u)
@@ -1650,7 +1637,7 @@ public:
 	{
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Uint16_CB(Callback, uint16_t u)
@@ -1660,7 +1647,7 @@ public:
 	bool Uint8(uint8_t u)
 	{
 		output.Put(static_cast<char>(u));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Uint8_CB(Callback, uint8_t u)
@@ -1675,11 +1662,11 @@ public:
 			ASSERT(std::isfinite(d) && "failed to write double");
 			return false;
 		}
-		//uint64_t fhold = *reinterpret_cast<uint64_t*>(&d);
-		//get around -Wstrict-aliasing warning
+		// uint64_t fhold = *reinterpret_cast<uint64_t*>(&d);
+		// get around -Wstrict-aliasing warning
 		uint64_t fhold;
 		memcpy(&fhold, &d, sizeof(fhold));
-		
+
 		output.Put(static_cast<char>(fhold >> 56));
 		output.Put(static_cast<char>(fhold >> 48));
 		output.Put(static_cast<char>(fhold >> 40));
@@ -1688,7 +1675,7 @@ public:
 		output.Put(static_cast<char>(fhold >> 16));
 		output.Put(static_cast<char>(fhold >> 8));
 		output.Put(static_cast<char>(fhold));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Double_CB(Callback, double d)
@@ -1704,15 +1691,15 @@ public:
 			ASSERT(std::isfinite(d) && "failed to write float");
 			return false;
 		}
-		//uint32_t fhold = *reinterpret_cast<uint32_t*>(&d);
-		//get around -Wstrict-aliasing warning
+		// uint32_t fhold = *reinterpret_cast<uint32_t*>(&d);
+		// get around -Wstrict-aliasing warning
 		uint32_t fhold;
 		memcpy(&fhold, &d, sizeof(fhold));
 		output.Put(static_cast<char>(fhold >> 24));
 		output.Put(static_cast<char>(fhold >> 16));
 		output.Put(static_cast<char>(fhold >> 8));
 		output.Put(static_cast<char>(fhold));
-		return true;
+		return output.good();
 	}
 	template<class Callback>
 	bool Float_CB(Callback, float d)
@@ -1722,24 +1709,21 @@ public:
 	bool String(std::string_view str, size_t max_size = std::numeric_limits<uint16_t>::max())
 	{
 		ASSERT(max_size <= std::numeric_limits<uint16_t>::max());
-		if(str.size() <= max_size)
-		{
-			if(!Uint16(str.size()))
-			{
-				return false;
-			}
-			for(char c : str)
-			{
-				output.Put(c);
-			}
-		}
-		else
+		if(str.size() > max_size)
 		{
 			serrf("string too large, max: %zu result: %zu\n", max_size, str.size());
 			ASSERT(str.size() <= max_size);
 			return false;
 		}
-		return true;
+		if(!Uint16(str.size()))
+		{
+			return false;
+		}
+		for(char c : str)
+		{
+			output.Put(c);
+		}
+		return output.good();
 	}
 	template<class Callback>
 	bool String_CB(
@@ -1759,29 +1743,26 @@ public:
 		return String(str, max_size);
 	}
 
-	// this must be a global string.
-	// because keys are for annotation, they are never read.
-	template<size_t i>
-	bool Key(const char (&)[i])
+	bool Key(std::string_view)
 	{
-		return true;
+		return output.good();
 	}
 
 	bool StartObject()
 	{
-		return true;
+		return output.good();
 	}
 	bool EndObject()
 	{
-		return true;
+		return output.good();
 	}
 	bool StartArray()
 	{
-		return true;
+		return output.good();
 	}
 	bool EndArray()
 	{
-		return true;
+		return output.good();
 	}
 };
 
@@ -1980,8 +1961,8 @@ public:
 
 	void Put(char c)
 	{
+		if(error) return;
 		if(current_ >= bufferEnd_) Flush();
-
 		*current_++ = c;
 	}
 
@@ -2429,10 +2410,7 @@ bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 	info = (info == NULL ? file->stream_info : info);
 
 	char read_buffer[1000];
-	KsonCB_ReadStream stream(
-		[file](char* buf, size_t read_num) -> size_t { return file->read(buf, 1, read_num); },
-		read_buffer,
-		sizeof(read_buffer));
+	KsonCB_ReadStream stream(internal_rwops_read_callback{file}, read_buffer, sizeof(read_buffer));
 
 	BinaryReader ar(stream);
 
@@ -2507,9 +2485,7 @@ bool kson_write_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 
 	char write_buffer[1000];
 	KsonCB_WriteStream stream(
-		[file](char* buf, size_t write_num) -> size_t { return file->write(buf, 1, write_num); },
-		write_buffer,
-		sizeof(write_buffer));
+		internal_rwops_write_callback{file}, write_buffer, sizeof(write_buffer));
 
 	BinaryWriter ar(stream);
 
@@ -2528,3 +2504,39 @@ bool kson_write_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 	}
 	return true;
 }
+
+// convenience callback helper
+template<class T>
+struct kson_min_max_cb
+{
+	T& value;
+	T min_value;
+	T max_value;
+	explicit kson_min_max_cb(T& value_, T min_value_, T max_value_)
+	: value(value_)
+	, min_value(min_value_)
+	, max_value(max_value_)
+	{
+		ASSERT(min_value < max_value);
+	}
+	bool operator()(T result)
+	{
+		if(result < min_value)
+		{
+			// printf + generics don't mix up well, better use a stringstream.
+			std::ostringstream oss;
+			oss << "error result too small: " << result << " < min: " << min_value;
+			serrf("%s\n", oss.str().c_str());
+			return false;
+		}
+		if(result > max_value)
+		{
+			std::ostringstream oss;
+			oss << "error result too big: " << result << " > max: " << max_value;
+			serrf("%s\n", oss.str().c_str());
+			return false;
+		}
+		value = result;
+		return true;
+	}
+};

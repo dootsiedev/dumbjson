@@ -621,24 +621,33 @@ void data_type::kson_serialize(Archive& ar)
 	ar.Int(i);
 	ar.Key("d");
 	ar.Double(d);
+
 	ar.Key("s");
 	// ar.String(s);
-	// this wont check for control keys, I expect.
-	// you can use \xa0\xa1 to check
-	// rapidjson supports this internally with \xa0\xa1
 	size_t test = 3;
-	ar.String_CB(
-		[this](const char* str, size_t size) {
+
+	struct custom_string_wrapper
+	{
+		std::string& s;
+		explicit custom_string_wrapper(std::string& s_)
+		: s(s_)
+		{
+		}
+		bool operator()(const char* str, size_t size)
+		{
 			if(!utf8::is_valid(str, str + size))
 			{
+				// this wont check for control keys, I expect.
+				// you can use \xa0\xa1 to check
+				// rapidjson supports this internally with \xa0\xa1
 				serr("invalid utf8\n");
 				return false;
 			}
 			s = std::string(str, size);
 			return true;
-		},
-		s,
-		test);
+		}
+	};
+	ar.String_CB(custom_string_wrapper{s}, s, test);
 	ar.EndObject();
 }
 
@@ -652,17 +661,8 @@ bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	ar.Key("size");
 	ASSERT(std::size(data) <= std::numeric_limits<uint16_t>::max());
 	uint16_t test_array_size = static_cast<uint16_t>(std::size(data));
-	if(!ar.Uint16_CB(
-		   [&test_array_size](uint16_t result) {
-			   if(result > 3)
-			   {
-				   serrf("max size: 3, result: %u\n", result);
-				   return false;
-			   }
-			   test_array_size = result;
-			   return true;
-		   },
-		   test_array_size))
+
+	if(!ar.Uint16_CB(kson_min_max_cb<uint16_t>{test_array_size, 0, 3}, test_array_size))
 	{
 		// exit early
 		return false;
@@ -1453,7 +1453,7 @@ int main(int, char**)
 
 	for(auto& job : test_jobs)
 	{
-		file_size = sizeof(file_memory);
+		file_size = sizeof(file_memory)-1;
 
 		t1 = timer_now();
 		if(job.pfn(file_memory, file_size) < 0)
