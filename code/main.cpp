@@ -640,9 +640,7 @@ bool data_type::kson_serialize(Archive& ar)
 		{
 			if(!utf8::is_valid(str, str + size))
 			{
-				// this wont check for control keys, I expect.
 				// you can use \xa0\xa1 to check
-				// rapidjson supports this internally with \xa0\xa1
 				serr("invalid utf8\n");
 				return false;
 			}
@@ -664,13 +662,13 @@ bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 		return false;
 	}
 
-	// this is a drawback of using stream json,
+	// this is a drawback of using kson,
 	// which is the requirement of manually sized arrays.
 	ar.Key("size");
 	ASSERT(std::size(data) <= std::numeric_limits<uint16_t>::max());
 	uint16_t test_array_size = static_cast<uint16_t>(std::size(data));
 
-	if(!ar.Uint16_CB(kson_min_max_cb<uint16_t>{test_array_size, 0, 3}, test_array_size))
+	if(!ar.Uint16_CB(kson_min_max_cb<uint16_t>{test_array_size, 3, 3}, test_array_size))
 	{
 		// exit early
 		return false;

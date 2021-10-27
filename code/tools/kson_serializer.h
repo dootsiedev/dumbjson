@@ -2515,7 +2515,7 @@ struct kson_min_max_cb
 	, min_value(min_value_)
 	, max_value(max_value_)
 	{
-		ASSERT(min_value < max_value);
+		ASSERT(min_value <= max_value);
 	}
 	bool operator()(T result)
 	{
