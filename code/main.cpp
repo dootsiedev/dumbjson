@@ -9,7 +9,6 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include <rapidjson/prettywriter.h>
 
 static int test_object_1(char* file_memory, size_t& file_size)
 {
@@ -402,7 +401,7 @@ struct data_type
 	}
 
 	template<class Archive>
-	void kson_serialize(Archive& ar);
+	bool kson_serialize(Archive& ar);
 
 	bool operator==(const data_type& rhs) const
 	{
@@ -614,9 +613,13 @@ static int test_array_of_objects_2(char* file_memory, size_t& file_size)
 }
 
 template<class Archive>
-void data_type::kson_serialize(Archive& ar)
+bool data_type::kson_serialize(Archive& ar)
 {
-	ar.StartObject();
+	if(!ar.StartObject())
+	{
+		// exit early
+		return false;
+	}
 	ar.Key("i");
 	ar.Int(i);
 	ar.Key("d");
@@ -649,12 +652,17 @@ void data_type::kson_serialize(Archive& ar)
 	};
 	ar.String_CB(custom_string_wrapper{s}, s, test);
 	ar.EndObject();
+	return true;
 }
 
 template<class Archive>
 bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 {
-	ar.StartObject();
+	if(!ar.StartObject())
+	{
+		// exit early
+		return false;
+	}
 
 	// this is a drawback of using stream json,
 	// which is the requirement of manually sized arrays.
@@ -677,7 +685,10 @@ bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 	ar.StartArray();
 	for(data_type& entry : data)
 	{
-		entry.kson_serialize(ar);
+		if(!entry.kson_serialize(ar))
+		{
+			return false;
+		}
 	}
 	ar.EndArray();
 
@@ -767,7 +778,7 @@ static int test_kson_json_memory(char* file_memory, size_t& file_size)
 			return -1;
 		}
 
-		file_size = (sb.GetLength() > file_size - 1 ? file_size - 1 : sb.GetLength());
+		file_size = (sb.GetLength() > file_size) ? file_size : sb.GetLength();
 		memcpy(file_memory, sb.GetString(), file_size);
 		file_memory[file_size] = '\0';
 	}
@@ -864,7 +875,7 @@ static int test_kson_binary_stream(char* file_memory, size_t& file_size)
 	}
 #if 1
 	std::string tmp = base64_encode(file_memory, file_size);
-	file_size = (tmp.size() > old_file_size - 1) ? old_file_size - 1 : tmp.size();
+	file_size = (tmp.size() > old_file_size) ? old_file_size : tmp.size();
 	memcpy(file_memory, tmp.c_str(), file_size);
 	file_memory[file_size] = '\0';
 #else
@@ -893,7 +904,7 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 			return -1;
 		}
 
-		file_size = (sb.GetLength() > file_size - 1 ? file_size - 1 : sb.GetLength());
+		file_size = (sb.GetLength() > file_size ? file_size : sb.GetLength());
 		memcpy(file_memory, sb.GetString(), file_size);
 		file_memory[file_size] = '\0';
 	}
@@ -929,7 +940,7 @@ static int test_kson_binary_memory(char* file_memory, size_t& file_size)
 
 #if 1
 	std::string tmp = base64_encode(file_memory, file_size);
-	file_size = (tmp.size() > old_file_size - 1) ? old_file_size - 1 : tmp.size();
+	file_size = (tmp.size() > old_file_size) ? old_file_size : tmp.size();
 	memcpy(file_memory, tmp.c_str(), file_size);
 	file_memory[file_size] = '\0';
 #else
@@ -1453,7 +1464,7 @@ int main(int, char**)
 
 	for(auto& job : test_jobs)
 	{
-		file_size = sizeof(file_memory)-1;
+		file_size = sizeof(file_memory) - 1;
 
 		t1 = timer_now();
 		if(job.pfn(file_memory, file_size) < 0)

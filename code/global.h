@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cassert>
+#include <cstdarg>
+#include <cmath>
+#include <cstdint>
+
 #include <string>
 #include <string_view>
 #include <memory>
@@ -9,9 +14,6 @@
 #include <unordered_map>
 #include <algorithm>
 #include <chrono>
-#include <assert.h>
-#include <stdarg.h>
-#include <cstdint>
 #include <limits>
 #include <sstream>
 
