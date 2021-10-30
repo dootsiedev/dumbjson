@@ -46,7 +46,8 @@ if(MSVC)
     endif()
 
     #remove the flag that disables /GS on release builds.
-    if(USE_SAFESTACK)
+    option(USE_MSVC_GS "remove /GS- on msvc" OFF)
+    if(USE_MSVC_GS)
         string( REPLACE "/GS-" "/GS" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
         string( REPLACE "/GS-" "/GS" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
     endif()
@@ -77,8 +78,8 @@ endif()
 
 #If you install anywhere other than /usr or the default /usr/local
 #the libraries will not be accessible without setting rpath (or manually doing LD_LIBRARY_PATH)
-if(PORTABLE)
-    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+if(PORTABLE OR WIN32)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 find_program(CCACHE_FOUND ccache)
@@ -104,6 +105,8 @@ if (MSVC)
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /D_SCL_SECURE_NO_WARNINGS /D_NOMINMAX)
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /wd4244) # C4244: 'conversion_type': conversion from 'type1' to 'type2', possible loss of data
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /wd4068) # C4068: unknown pragma
+
+    #maybe /analyze?
 else()
     
     if(NO_RTTI)
@@ -165,7 +168,7 @@ else()
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wunused -Wundef -Wmissing-declarations -Wvla)
 
     #prevent debugging problems on reldeb.
-    if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
         set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -fno-omit-frame-pointer)
     endif()
 endif()
@@ -233,7 +236,7 @@ if(USE_UBSAN)
                 target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=undefined)
                 target_link_options(ALL_SANITIZERS INTERFACE -fsanitize-trap=undefined)
             else()
-                #gcc doesn't support CFI so it doesn't matter.
+                #gcc doesn't support the same flags
                 target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize-undefined-trap-on-error)
                 target_link_options(ALL_SANITIZERS INTERFACE -fsanitize-undefined-trap-on-error)
             endif()
@@ -242,15 +245,13 @@ if(USE_UBSAN)
                 target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=undefined)
                 target_link_options(ALL_SANITIZERS INTERFACE -fno-sanitize-trap=undefined)
             else()
-                #gcc doesn't support CFI so it doesn't matter.
+                #gcc doesn't support the same flags
                 target_compile_options(ALL_SANITIZERS INTERFACE -fno-sanitize-undefined-trap-on-error)
                 target_link_options(ALL_SANITIZERS INTERFACE -fno-sanitize-undefined-trap-on-error)
             endif()
         endif()
 	endif()
 endif ()
-
-
 
 
 # I am unsure if TSAN would work, the FAQ say that C++11 threads are buggy
@@ -274,30 +275,32 @@ if(USE_FORTIFY)
     target_compile_options(ALL_SANITIZERS INTERFACE -D_FORTIFY_SOURCE=2)
 endif()
 
-option(USE_CFI "Use Control Flow Integrety (requires LTO on linux), enables /guard:cf on msvc" OFF)
-if(USE_CFI)
-    
-    if(MSVC)
-        target_compile_options(ALL_SANITIZERS INTERFACE /guard:cf)
-        target_link_options(ALL_SANITIZERS INTERFACE /guard:cf)
-    elseif(MY_CLANGCL)
-        target_compile_options(ALL_SANITIZERS INTERFACE -Xclang -cfguard)
-        target_link_options(ALL_SANITIZERS INTERFACE -Xlinker /guard:cf)
-    else()
-        if(USE_LTO)
-            message(WARNING "redundant USE_LTO with cfi")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+
+    option(USE_CLANG_SAFESTACK "enable clang's fsanitize=safe-stack (linux only)" OFF)
+    if(USE_CLANG_SAFESTACK)
+        #one problem with safe-stack is that it doesn't work accross DSO's (maybe?)
+        #and it will not work with LSAN
+        target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=safe-stack)
+        target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=safe-stack)
+    endif()
+
+    option(USE_CLANG_CFI "Use clang's Control Flow Integrety sanitizer (linux only)" OFF)
+    if(USE_CFI)
+        if(NOT USE_LTO)
+            message(WARNING "you must enabled USE_LTO with cfi")
         endif()
 
-        #note the problem with USE_LTO is that CMAKE_INTERPROCEDURAL_OPTIMIZATION
-        #will use something different than -flto, which will give errors with -fPIE
-        target_compile_options(ALL_SANITIZERS INTERFACE -flto)
-        target_link_options(ALL_SANITIZERS INTERFACE -flto)
+        #note I think CMAKE_INTERPROCEDURAL_OPTIMIZATION will actually
+        #emit something different than -flto, but I think the llvm IR is all that matters.
+        #target_compile_options(ALL_SANITIZERS INTERFACE -flto)
+        #target_link_options(ALL_SANITIZERS INTERFACE -flto)
 
-        #visibility hidden is required (I think gcc does it by default, but not clang.)
+        #visibility hidden is required 
         target_compile_options(ALL_SANITIZERS INTERFACE -fvisibility=hidden)
         
         #on my system, std::to_string would cause an indirect call error...
-        #because maybe the function signature is slightly different?
+        #maybe that is libstd++'s fault, maybe libc is needed.
         target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi)
         target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=cfi)
 
@@ -311,17 +314,35 @@ if(USE_CFI)
     endif()
 endif()
 
-option(USE_SAFESTACK "Use Stack Protection from modifying the return address, forces /GS on msvc" OFF)
-if(USE_SAFESTACK)
-    if(MSVC)
-        #remember to remove /GS- from release builds. Can't do it by target because cmake is a mess.
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(ALL_SANITIZERS INTERFACE -fsanitize=safe-stack)
-        target_link_options(ALL_SANITIZERS INTERFACE -fsanitize=safe-stack)
-    else()
-        target_compile_options(ALL_SANITIZERS INTERFACE -fstack-protector)
-        target_link_options(ALL_SANITIZERS INTERFACE -fstack-protector)
+if(WIN32)
+    option(USE_MSVC_CFG "enable /guard:cf on msvc" OFF)
+    if(USE_MSVC_CFG)
+        if(MSVC)
+            target_compile_options(ALL_SANITIZERS INTERFACE /guard:cf)
+            target_link_options(ALL_SANITIZERS INTERFACE /guard:cf)
+        elseif(MY_CLANGCL)
+            target_compile_options(ALL_SANITIZERS INTERFACE -Xclang -cfguard)
+            target_link_options(ALL_SANITIZERS INTERFACE -Xlinker /guard:cf)
+        else()
+            #I probably could get it working on msys, I just don't know the flag.
+            message(WARNING "/guard:cf unsupported")
+        endif()
     endif()
+endif()
+
+
+
+option(USE_STACK_CLASH_PROTECTION "enable fstack-clash-protection (linux only)" OFF)
+if(USE_STACK_CLASH_PROTECTION)
+    #stack clash protection might already be enabled by default?
+    target_compile_options(ALL_SANITIZERS INTERFACE -fstack-clash-protection)
+    target_link_options(ALL_SANITIZERS INTERFACE -fstack-clash-protection)
+endif()
+
+option(USE_STACK_PROTECTOR "enable fstack-protector-strong (linux only)" OFF)
+if(USE_STACK_PROTECTOR)
+    target_compile_options(ALL_SANITIZERS INTERFACE -fstack-protector-strong)
+    target_link_options(ALL_SANITIZERS INTERFACE -fstack-protector-strong)
 endif()
 
 
@@ -364,6 +385,8 @@ if(USE_OLD_SDL2)
     target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARIES})
 else()
+    #if find_package worked, but the target is missing,
+    #you probably need to USE_OLD_SDL2
     if(NOT STATIC_BUILD)
         target_link_libraries(${PROJECT_NAME} SDL2::SDL2)
     else()
@@ -401,19 +424,22 @@ install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 #warning: this probably will not update stale DLL's, but I should double check.
 if(PORTABLE OR WIN32)
 
-    set(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_BINDIR}")
+    if(WIN32)
+        #sets PATH because it includes address sanitizer DLL's... not set by CMAKE_SYSTEM_LIBRARY_PATH
+        set(MY_DEPENDENCY_PATHS ${CMAKE_SYSTEM_LIBRARY_PATH})
 
-    #sets PATH because it includes address sanitizer DLL's... not set by CMAKE_SYSTEM_LIBRARY_PATH
-    set(MY_DEPENDENCY_PATHS ${CMAKE_SYSTEM_LIBRARY_PATH})
+        #I like to use CMAKE_PREFIX_PATH for prefixes of installed libraries, but I don't want to bundle the garbage
+        foreach(_file ${CMAKE_PREFIX_PATH})
+            set(MY_DEPENDENCY_PATHS ${MY_DEPENDENCY_PATHS} "${_file}/${CMAKE_INSTALL_LIBDIR}")
+        endforeach()
 
-	#I like to use CMAKE_PREFIX_PATH for prefixes of installed libraries, but I don't want to bundle the garbage
-	foreach(_file ${CMAKE_PREFIX_PATH})
-		set(MY_DEPENDENCY_PATHS ${MY_DEPENDENCY_PATHS} "${_file}/bin")
-	endforeach()
+        install(CODE "set(MY_DEPENDENCY_PATHS \"${MY_DEPENDENCY_PATHS}\")")
+    else()
+        install(CODE "set(MY_DEPENDENCY_PATHS \"\")")
+    endif()
     
     # Transfer the value of ${MY_DEPENDENCY_PATHS} into the install script
-	install(CODE "set(MY_DESTINATION_PATH \"{CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\")")
-    install(CODE "set(MY_DEPENDENCY_PATHS \"${MY_DEPENDENCY_PATHS}\")")
+	install(CODE "set(MY_DESTINATION_PATH \"${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\")")
     install(CODE "set(MY_EXECUTABLE_NAME \"$<TARGET_FILE:${PROJECT_NAME}>\")")
     install(CODE [[
 		file(GET_RUNTIME_DEPENDENCIES
@@ -422,7 +448,7 @@ if(PORTABLE OR WIN32)
 			UNRESOLVED_DEPENDENCIES_VAR _u_deps
 			DIRECTORIES ${MY_DEPENDENCY_PATHS} $ENV{PATH}
 			PRE_EXCLUDE_REGEXES "api-ms-*" "ext-ms-*"
-			POST_EXCLUDE_REGEXES "C:/Windows/System32/.*\\.dll" "/lib/.*\\.so"
+			POST_EXCLUDE_REGEXES "^C:/Windows/System32/.*\\.dll" "^/lib/.*\\.so" "^/usr/lib/.*\\.so"
 		)
 		foreach(_file ${_r_deps})
 			if(WIN32)
@@ -442,7 +468,11 @@ if(PORTABLE OR WIN32)
 		endforeach()
     ]])
 
-    if(MSVC AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    # no point in distributing pdb files because the pdb files require .obj files to remain in place
+    # which was a optimization in vs2017 that makes building debug builds much faster....
+    # you can use a tool that turns pdb files into full debug
+    if(0)
+    #if(MSVC AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
         #copy the pdb files so the debugger can see them.
         install(CODE "set(MY_DEBUG_SYMBOL $<TARGET_PDB_FILE:${PROJECT_NAME}>)")
         install(CODE [[file(INSTALL FILES ${MY_DEBUG_SYMBOL}  DESTINATION ${MY_DESTINATION_PATH})]])

@@ -1,0 +1,50 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "msvc_default",
+            "description": "Default build for windows",
+            "inherits": "default",
+            "generator": "Ninja",
+            "hidden": true,
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "Windows"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "msvc_asan",
+            "description": "debug with asan",
+            "inherits": "msvc_default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "USE_ASAN": true
+            }
+        },
+        {
+            "name": "msvc_reldeb_static",
+            "description": "Default build for windows",
+            "inherits": "msvc_default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "FORCE_STATIC_VCRT": true,
+                "STATIC_BUILD": true,
+                "USE_LTO": true
+            }
+        }
+    ],
+    "buildPresets": [],
+    "testPresets": []
+}

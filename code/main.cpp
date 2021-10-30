@@ -5,6 +5,7 @@
 
 #include "tools/RWops.h"
 
+#include <SDL2/SDL.h>
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
@@ -995,6 +996,42 @@ static int test_read_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 
+static int test_read_kson(char* file_memory, size_t& file_size)
+{
+	char temp_file[] = R"(
+//this is a comment
+{
+	/*another one!*/
+   "null":null})";
+	size_t temp_size = strlen(temp_file);
+	ASSERT(file_size > temp_size);
+
+	file_size = (temp_size > file_size) ? file_size : temp_size;
+	memcpy(file_memory, temp_file, file_size);
+	file_memory[file_size] = '\0';
+
+	if(!kson_read_json_memory(
+		   [](auto& ar) -> bool {
+			   ar.StartObject();
+			   ar.Key("null");
+			   ar.Null();
+			   ar.EndObject();
+			   return true;
+		   },
+		   file_memory,
+		   file_size,
+		   __func__))
+	{
+		return -1;
+	}
+
+	
+
+	return 0;
+}
+
+// disabled because of the warnings on release, and wall of text
+#if 0
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 static int test_error_1(char* file_memory, size_t& file_size)
 {
@@ -1428,6 +1465,7 @@ static int test_error_1(char* file_memory, size_t& file_size)
 
 	return 0;
 }
+#endif
 
 // possible todo's:
 // the time benchmark is vague because it doesn't split the write/read time.
@@ -1458,7 +1496,7 @@ int main(int, char**)
 		{"test_kson_binary_stream", test_kson_binary_stream},
 		{"test_kson_binary_memory", test_kson_binary_memory},
 		{"test_read_1", test_read_1},
-		{"test_error_1", test_error_1}};
+		{"test_read_kson", test_read_kson}};
 
 	for(auto& job : test_jobs)
 	{

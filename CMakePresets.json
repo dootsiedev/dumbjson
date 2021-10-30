@@ -17,11 +17,11 @@
             }
         },
         {
-            "name": "linux_default",
-            "description": "Default build for linux",
+            "name": "platform",
+            "description": "linux build",
             "inherits": "default",
-            "generator": "Unix Makefiles",
             "hidden": true,
+            "generator": "Unix Makefiles",
             "cacheVariables": {
                 "USE_OLD_SDL2": true
             },
@@ -34,44 +34,11 @@
             }
         },
         {
-            "name": "linux_asan",
-            "description": "debug with asan",
-            "inherits": "linux_default",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "USE_ASAN": true,
-                "USE_UBSAN": true
-            }
-        },
-        {
-            "name": "linux_reldeb",
-            "description": "release with debug and fortified",
-            "inherits": "linux_default",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "USE_FORTIFY":true,
-                "USE_SAFESTACK": true
-            }
-        },
-        {
-            "name": "linux_fast",
-            "description": "release with debug and fortified",
-            "inherits": "linux_default",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "USE_LTO":true
-            }
-        },
-        {
-            "name": "msvc_default",
-            "description": "Default build for windows",
+            "name": "platform",
+            "description": "msvc build",
             "inherits": "default",
-            "generator": "Ninja",
             "hidden": true,
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
+            "generator": "Ninja",
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
                     "hostOS": [
@@ -81,23 +48,27 @@
             }
         },
         {
-            "name": "msvc_asan",
-            "description": "debug with asan",
-            "inherits": "msvc_default",
+            "name": "debug",
+            "description": "debug",
+            "inherits": "platform",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "USE_ASAN": true
+                "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
-            "name": "msvc_reldeb_static",
-            "description": "Default build for windows",
-            "inherits": "msvc_default",
+            "name": "reldeb",
+            "description": "release with debug info",
+            "inherits": "platform",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "FORCE_STATIC_VCRT": true,
-                "STATIC_BUILD": true,
-                "USE_LTO": true
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "release",
+            "description": "release",
+            "inherits": "platform",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
             }
         }
     ],

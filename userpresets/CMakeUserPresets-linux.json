@@ -1,0 +1,84 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "default_clang",
+            "description": "Default build",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/../${sourceDirName}_${presetName}/build",
+            "environment": {
+                "PATH": "/usr/lib/llvm-12/bin:$penv{PATH}"
+            },
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/../${sourceDirName}_${presetName}/install",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "Xlinux_default",
+            "description": "Default build for linux",
+            "inherits": "Xdefault",
+            "generator": "Unix Makefiles",
+            "hidden": true,
+            "cacheVariables": {
+                "USE_OLD_SDL2": false
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "Linux"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Xlinux_asan",
+            "description": "debug with asan",
+            "inherits": "Xlinux_default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_PREFIX_PATH": "${sourceDir}/../prefix_path",
+                "USE_ASAN": true,
+                "USE_UBSAN": true
+            }
+        },
+        {
+            "name": "Xlinux_reldeb",
+            "description": "release with debug and fortified",
+            "inherits": "Xlinux_default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_PREFIX_PATH": "${sourceDir}/../prefix_path",
+                "USE_CLANG_CFI":true,
+                "USE_CLANG_SAFESTACK":true,
+                "USE_STACK_PROTECTOR":true,
+                "USE_STACK_CLASH_PROTECTION":true,
+                "USE_FORTIFY":true,
+                "NO_RTTI":true,
+                "NO_EXCEPTIONS":true,
+                "PORTABLE":true
+            }
+        },
+        {
+            "name": "Xlinux_fast",
+            "description": "release with debug and fortified",
+            "inherits": "Xlinux_default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_PREFIX_PATH": "${sourceDir}/../prefix_path",
+                "USE_LTO":true,
+                "NO_RTTI":true,
+                "NO_EXCEPTIONS":true
+            }
+        }
+    ],
+    "buildPresets": [],
+    "testPresets": []
+}

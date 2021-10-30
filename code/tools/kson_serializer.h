@@ -2040,7 +2040,7 @@ void print_json_error(Reader& reader, size_t offset)
 			++count;
 			if(*pos == '\n')
 			{
-				if(offset <= count)
+				if(offset < count)
 				{
 					break;
 				}
@@ -2061,7 +2061,7 @@ void print_json_error(Reader& reader, size_t offset)
 			++count;
 			if(c == '\n')
 			{
-				if(offset <= count)
+				if(offset < count)
 				{
 					break;
 				}
@@ -2085,7 +2085,7 @@ void print_json_error(Reader& reader, size_t offset)
 		*line_end = '\0';
 
 		// tabs to spaces because it makes the column index clearer.
-		std::replace(buffer, line_end, '\t', ' ');
+		// std::replace(buffer, line_end, '\t', ' ');
 
 		serrf(
 			"Line: %zu\n"
@@ -2097,7 +2097,7 @@ void print_json_error(Reader& reader, size_t offset)
 	}
 	else
 	{
-		//TODO (dootsie): I didn't test this enough
+		// TODO (dootsie): I didn't test this enough
 		ASSERT(false && "unreachable");
 	}
 }

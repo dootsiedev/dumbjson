@@ -55,7 +55,14 @@ struct nocopy
 	nocopy& operator=(const nocopy&) = delete;
 };
 
+// I need this because it is more robust to not use a template<> for the resolution,
+// but I have no idea how to remove the template for chrono.
+#define timer_delta_ms(start, end) timer_delta<1000>(start, end)
+
 typedef double TIMER_RESULT;
+
+//swtich from SDL's QPC (not MT sycned) or C++'s chrono
+#if 0
 
 typedef std::chrono::steady_clock::time_point TIMER_U;
 
@@ -74,13 +81,11 @@ TIMER_RESULT timer_delta(TIMER_U start, TIMER_U end)
 		.count();
 }
 
-// I need this because it is more robust to not use a template<> for the resolution,
-// but I have no idea how to remove the template for chrono.
-#define timer_delta_ms(start, end) timer_delta<1000>(start, end)
 
-// I want to use this, but I randomly got a negative number causing UBsan to trigger
-// probably a problem with QPC with multiple threads?
-#if 0
+#else
+
+#include <SDL2/SDL_timer.h>
+
 typedef Uint64 TIMER_U;
 
 inline TIMER_U timer_now()
