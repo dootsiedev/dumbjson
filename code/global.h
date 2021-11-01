@@ -61,7 +61,7 @@ struct nocopy
 
 typedef double TIMER_RESULT;
 
-//swtich from SDL's QPC (not MT sycned) or C++'s chrono
+// swtich from SDL's QPC (not MT sycned) or C++'s chrono
 #if 0
 
 typedef std::chrono::steady_clock::time_point TIMER_U;
@@ -81,7 +81,6 @@ TIMER_RESULT timer_delta(TIMER_U start, TIMER_U end)
 		.count();
 }
 
-
 #else
 
 #include <SDL2/SDL_timer.h>
@@ -90,16 +89,17 @@ typedef Uint64 TIMER_U;
 
 inline TIMER_U timer_now()
 {
-    return SDL_GetPerformanceCounter();
+	return SDL_GetPerformanceCounter();
 }
 
-//resolution is based on how much to divide 1 seconds
-//1 = print in seconds, 1000 = print in milliseconds
+// resolution is based on how much to divide 1 seconds
+// 1 = print in seconds, 1000 = print in milliseconds
 template<Uint64 resolution>
 inline TIMER_RESULT timer_delta(TIMER_U start, TIMER_U end)
 {
-  Uint64 frequency = SDL_GetPerformanceFrequency();
-  return (TIMER_RESULT)((end - start)*resolution) / (TIMER_RESULT)frequency;
+	Uint64 frequency = SDL_GetPerformanceFrequency();
+	return static_cast<TIMER_RESULT>((end - start) * resolution) /
+		   static_cast<TIMER_RESULT>(frequency);
 }
 #endif
 

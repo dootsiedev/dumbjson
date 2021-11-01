@@ -1202,7 +1202,6 @@ public:
 			// so you should pull out a debugger and check it yourself.
 			serrf("string too large, max: %zu result: %zu\n", max_size, str.size());
 			ASSERT(str.size() <= max_size);
-			Null();
 			return false;
 		}
 		return writer.String(str.data(), str.size());
@@ -1221,7 +1220,6 @@ public:
 		{
 			serrf("string too large, max: %zu result: %zu\n", max_size, str.size());
 			ASSERT(str.size() <= max_size);
-			Null();
 			return false;
 		}
 		std::string tmp = base64_encode(str.data(), str.size());
@@ -1312,7 +1310,7 @@ public:
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 16;
 		tmp |= static_cast<uint32_t>(static_cast<uint8_t>(reader.Take())) << 8;
 		tmp |= static_cast<uint8_t>(reader.Take());
-		if(!reader.good() || !cb(static_cast<int32_t>(tmp)))
+		if(!cb(static_cast<int32_t>(tmp)))
 		{
 			error = true;
 			return false;
@@ -1561,13 +1559,13 @@ public:
 
 	bool Null()
 	{
-		return output.good();
+		return true;
 	}
 
 	bool Bool(bool b)
 	{
 		output.Put(b);
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Bool_CB(Callback, bool b)
@@ -1580,7 +1578,7 @@ public:
 		output.Put(static_cast<char>(i >> 16));
 		output.Put(static_cast<char>(i >> 8));
 		output.Put(static_cast<char>(i));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Int_CB(Callback, int i)
@@ -1593,7 +1591,7 @@ public:
 		output.Put(static_cast<char>(u >> 16));
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Uint_CB(Callback, unsigned u)
@@ -1610,7 +1608,7 @@ public:
 		output.Put(static_cast<char>(i >> 16));
 		output.Put(static_cast<char>(i >> 8));
 		output.Put(static_cast<char>(i));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Int64_CB(Callback, int64_t i)
@@ -1627,7 +1625,7 @@ public:
 		output.Put(static_cast<char>(u >> 16));
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Uint64_CB(Callback, uint64_t u)
@@ -1640,7 +1638,7 @@ public:
 	{
 		output.Put(static_cast<char>(u >> 8));
 		output.Put(static_cast<char>(u));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Uint16_CB(Callback, uint16_t u)
@@ -1650,7 +1648,7 @@ public:
 	bool Uint8(uint8_t u)
 	{
 		output.Put(static_cast<char>(u));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Uint8_CB(Callback, uint8_t u)
@@ -1678,7 +1676,7 @@ public:
 		output.Put(static_cast<char>(fhold >> 16));
 		output.Put(static_cast<char>(fhold >> 8));
 		output.Put(static_cast<char>(fhold));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Double_CB(Callback, double d)
@@ -1702,7 +1700,7 @@ public:
 		output.Put(static_cast<char>(fhold >> 16));
 		output.Put(static_cast<char>(fhold >> 8));
 		output.Put(static_cast<char>(fhold));
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool Float_CB(Callback, float d)
@@ -1726,7 +1724,7 @@ public:
 		{
 			output.Put(c);
 		}
-		return output.good();
+		return true;
 	}
 	template<class Callback>
 	bool String_CB(
@@ -1748,24 +1746,24 @@ public:
 
 	bool Key(std::string_view)
 	{
-		return output.good();
+		return true;
 	}
 
 	bool StartObject()
 	{
-		return output.good();
+		return true;
 	}
 	bool EndObject()
 	{
-		return output.good();
+		return true;
 	}
 	bool StartArray()
 	{
-		return output.good();
+		return true;
 	}
 	bool EndArray()
 	{
-		return output.good();
+		return true;
 	}
 };
 
@@ -1964,7 +1962,6 @@ public:
 
 	void Put(char c)
 	{
-		if(error) return;
 		if(current_ >= bufferEnd_) Flush();
 		*current_++ = c;
 	}
@@ -2139,60 +2136,55 @@ bool kson_read_json_memory(
 	{
 		serrf(
 			"Failed to parse json: `%s`\n"
-			"Error: %s\n"
+			"RapidJson Error: %s\n"
+			"Size: %zu\n"
 			"Offset: %zu\n",
 			info,
 			GetParseError_En(ar.reader.GetParseErrorCode()),
+			file_size,
 			ar.reader.GetErrorOffset());
-		// rewind the stream
+		// rewind the stream to print the offending line
 		stream = KsonMemoryStream(file_memory, file_memory + file_size);
 		print_json_error(stream, ar.reader.GetErrorOffset());
 
 		return false;
 	}
 
-	// if there was an error expected to be printed
-	if(!ar.good())
+	// assume the most recent serr contains the specific error
+	if(!cb_return || !ar.good())
 	{
-		size_t offset = stream.Tell();
+		ASSERT(serr_check_error());
 		serrf(
 			"Failed to parse json: `%s`\n"
-			"Offset: %zu\n",
+			"Size: %zu\n"
+			"Cursor: %zu\n",
 			info,
-			offset);
-		// rewind the stream
+			file_size,
+			stream.Tell());
+		// rewind the stream to print the offending line
+		size_t old_offset = stream.Tell();
 		stream = KsonMemoryStream(file_memory, file_memory + file_size);
-		print_json_error(stream, ar.reader.GetErrorOffset());
+		print_json_error(stream, old_offset);
 		return false;
 	}
 
-	if(!cb_return)
-	{
-		serrf("Failed to parse json: `%s`\n", info);
-		serrf("Stream size: %zu\n", file_size);
-		return false;
-	}
-
-	// some sort of error got printed.
-	if(serr_check_error())
-	{
-		serrf(
-			"Failed to parse json: `%s`\n"
-			"Error: uncaught serr error\n",
-			info);
-		serrf("Stream size: %zu\n", file_size);
-		return false;
-	}
+	// this is impossible because EOF will not trigger error
+	// if stream was accessed after EOF it will give an error.
+	ASSERT(stream.good());
 
 	if(!ar.is_complete())
 	{
 		serrf(
 			"Failed to parse json: `%s`\n"
-			"Error: incomplete json\n",
-			info);
-		serrf("Stream size: %zu\n", file_size);
+			"Error: incomplete json\n"
+			"Size: %zu\n"
+			"Cursor: %zu\n",
+			info,
+			file_size,
+			stream.Tell());
 		return false;
 	}
+
 	return true;
 }
 
@@ -2215,18 +2207,24 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = NULL)
 
 	if(ar.reader.HasParseError())
 	{
+		int end = -1;
+		if(file->seek(0, SEEK_END) >= 0)
+		{ 
+			end = file->tell();
+		}
 		serrf(
 			"Failed to parse json: `%s`\n"
-			"Error: %s\n"
+			"RapidJson Error: %s\n"
+			"Size: %d\n"
 			"Offset: %zu\n",
 			info,
 			GetParseError_En(ar.reader.GetParseErrorCode()),
+			end,
 			ar.reader.GetErrorOffset());
 
-		// rewind the stream
+		// rewind the stream to print the offending line
 		if(file->seek(0, SEEK_SET) >= 0)
 		{
-			// reset the stream.
 			stream = KsonCB_ReadStream(
 				internal_rwops_read_callback{file}, read_buffer, sizeof(read_buffer));
 			print_json_error(stream, ar.reader.GetErrorOffset());
@@ -2234,50 +2232,59 @@ bool kson_read_json_stream(Callback cb, RWops* file, const char* info = NULL)
 		return false;
 	}
 
-	// if there was an error expected to be printed
-	if(!ar.good() || !cb_return)
+	// assume the most recent serr contains the specific error
+	if(!cb_return || !ar.good())
 	{
-		size_t offset = stream.Tell();
+		ASSERT(serr_check_error());
+		int end = -1;
+		if(file->seek(0, SEEK_END) >= 0)
+		{ 
+			end = file->tell();
+		}
 		serrf(
 			"Failed to parse json: `%s`\n"
-			"Offset: %zu\n",
+			"Size: %d\n"
+			"Cursor: %zu\n",
 			info,
-			offset);
-		// rewind the stream
+			end,
+			stream.Tell());
+
+		// rewind the stream to print the offending line
+		size_t old_offset = stream.Tell();
 		if(file->seek(0, SEEK_SET) >= 0)
 		{
 			// reset the stream.
 			stream = KsonCB_ReadStream(
 				internal_rwops_read_callback{file}, read_buffer, sizeof(read_buffer));
-			print_json_error(stream, offset);
+			print_json_error(stream, old_offset);
 		}
 		return false;
 	}
 
-	// some sort of error got printed.
-	if(serr_check_error())
-	{
-		serrf(
-			"Failed to parse json: `%s`\n"
-			"Error: uncaught serr error\n",
-			info);
-		serrf("Stream size: %zu\n", stream.Tell());
-		return false;
-	}
+	// this is impossible because rapidjson should handle it.
+	ASSERT(stream.good());
 
 	if(!ar.is_complete())
 	{
+		int end = -1;
+		if(file->seek(0, SEEK_END) >= 0)
+		{ 
+			end = file->tell();
+		}
 		serrf(
 			"Failed to parse json: `%s`\n"
-			"Error: incomplete json\n",
-			info);
-		serrf("Stream size: %zu\n", stream.Tell());
+			"Error: incomplete json\n"
+			"Size: %d\n"
+			"Cursor: %zu\n",
+			info,
+			end,
+			stream.Tell());
 		return false;
 	}
 	return true;
 }
 
-// callback has a signature <void(auto &ar)>
+// callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
 template<class Callback>
 bool kson_write_json_memory(Callback cb, KsonStringBuffer& sb, const char* info = "<unspecified>")
@@ -2287,11 +2294,15 @@ bool kson_write_json_memory(Callback cb, KsonStringBuffer& sb, const char* info 
 
 	bool cb_return = cb(ar);
 
-	// some sort of error got printed
-	if(!cb_return || serr_check_error())
+	// assume the most recent serr contains the specific error
+	if(!cb_return)
 	{
-		serrf("Failed to write json: `%s`\n", info);
-		serrf("Stream size: %zu\n", sb.GetSize());
+		ASSERT(serr_check_error());
+		serrf(
+			"Failed to write json: `%s`\n"
+			"Size: %zu\n",
+			info,
+			sb.GetSize());
 		return false;
 	}
 
@@ -2299,15 +2310,20 @@ bool kson_write_json_memory(Callback cb, KsonStringBuffer& sb, const char* info 
 	{
 		serrf(
 			"Failed to write json: `%s`\n"
-			"Error: failed to write a complete json file\n",
-			info);
-		serrf("Stream size: %zu\n", sb.GetSize());
+			"Error: failed to write a complete json file\n"
+			"Size: %zu\n",
+			info,
+			sb.GetSize());
 		return false;
 	}
+
+	//KsonStringBuffer::good() should always return true.
+	ASSERT(sb.good());
+
 	return true;
 }
 
-// callback has a signature <void(auto &ar)>
+// callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
 template<class Callback>
 bool kson_write_json_stream(Callback cb, RWops* file, const char* info = NULL)
@@ -2325,14 +2341,18 @@ bool kson_write_json_stream(Callback cb, RWops* file, const char* info = NULL)
 
 	bool cb_return = cb(ar);
 
-	// file->tell() will not work without this.
+	//call this for file->tell() to work (the buffer can contain unwritten bytes)
 	stream.Flush();
 
-	// some sort of error got printed
-	if(!cb_return || serr_check_error())
+	// assume the most recent serr contains the specific error
+	if(!cb_return)
 	{
-		serrf("Failed to write json: `%s`\n", info);
-		serrf("Stream size: `%d`\n", file->tell());
+		ASSERT(serr_check_error());
+		serrf(
+			"Failed to write json: `%s`\n"
+			"Size: %d\n",
+			info,
+			file->tell());
 		return false;
 	}
 
@@ -2340,11 +2360,25 @@ bool kson_write_json_stream(Callback cb, RWops* file, const char* info = NULL)
 	{
 		serrf(
 			"Failed to write json: `%s`\n"
-			"Error: failed to write a complete json file\n",
-			info);
-		serrf("Stream size: `%d`\n", file->tell());
+			"Error: failed to write a complete json file\n"
+			"Size: %d\n",
+			info,
+			file->tell());
 		return false;
 	}
+
+	if(!stream.good())
+	{
+		ASSERT(serr_check_error());
+		serrf(
+			"Failed to write json: `%s`\n"
+			"Error: stream error\n"
+			"Size: %d\n",
+			info,
+			file->tell());
+		return false;
+	}
+
 	return true;
 }
 
@@ -2363,23 +2397,17 @@ bool kson_read_binary_memory(
 
 	bool cb_return = cb(ar);
 
-	if(!ar.good() || !cb_return)
+	// assume the most recent serr contains the specific error
+	if(!cb_return || !ar.good())
 	{
-		serrf("Failed to parse binary: `%s`\n", info);
-		serrf("Stream size: %zu\n", file_size);
-		serrf("Cursor: %zu\n", stream.Tell());
-		return false;
-	}
-
-	// some sort of error got printed.
-	if(serr_check_error())
-	{
+		ASSERT(serr_check_error());
 		serrf(
 			"Failed to parse binary: `%s`\n"
-			"Error: uncaught serr error\n",
-			info);
-		serrf("Stream size: %zu\n", file_size);
-		serrf("Cursor: %zu\n", stream.Tell());
+			"Size: %zu\n"
+			"Cursor: %zu\n",
+			info,
+			file_size,
+			stream.Tell());
 		return false;
 	}
 
@@ -2388,11 +2416,13 @@ bool kson_read_binary_memory(
 	{
 		serrf(
 			"Failed to parse binary: `%s`\n"
-			"Error: mismatching file end, size: %zu cursor: %zu\n",
+			"Error: Cursor != Size\n"
+			"Size: %zu\n"
+			"Cursor: %zu\n",
 			info,
 			file_size,
 			stream.Tell());
-		return -1;
+		return false;
 	}
 
 	return true;
@@ -2415,44 +2445,60 @@ bool kson_read_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 
 	bool cb_return = cb(ar);
 
-	// if there was an error expected to be printed
-	if(!ar.good() || !cb_return)
+	//don't print another error
+	int end = -1;
+	if(file->seek(0, SEEK_END) >= 0)
 	{
-		serrf("Failed to parse binary: `%s`\n", info);
-		serrf("Stream size: %zu\n", stream.Tell());
-		return false;
+		end = file->tell();
 	}
+	
 
-	// some sort of error got printed.
-	if(serr_check_error())
+	// assume the most recent serr contains the specific error
+	if(!cb_return || !ar.good())
 	{
+		ASSERT(serr_check_error());
 		serrf(
 			"Failed to parse binary: `%s`\n"
-			"Error: uncaught serr error\n",
-			info);
-		serrf("Stream size: %zu\n", stream.Tell());
+			"Size: %d\n"
+			"Cursor: %zu\n",
+			info,
+			end,
+			stream.Tell());
 		return false;
 	}
 
 	// did we read every byte?
-	int cursor = file->tell();
-	file->seek(0, SEEK_END);
-	int end = file->tell();
-	if(cursor != end || cursor == -1)
+	if(end < 0 || stream.Tell() != static_cast<size_t>(end))
 	{
 		serrf(
 			"Failed to parse binary: `%s`\n"
-			"Error: mismatching file end, size: %d cursor: %d\n",
+			"Error: Cursor != Size\n"
+			"Size: %d\n"
+			"Cursor: %zu\n",
 			info,
 			end,
-			cursor);
-		return -1;
+			stream.Tell());
+		return false;
+	}
+
+	if(!stream.good())
+	{
+		ASSERT(serr_check_error());
+		serrf(
+			"Failed to parse binary: `%s`\n"
+			"Error: stream error\n"
+			"Size: %d\n"
+			"Cursor: %zu\n",
+			info,
+			end,
+			stream.Tell());
+		return false;
 	}
 
 	return true;
 }
 
-// callback has a signature <void(auto &ar)>
+// callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
 template<class Callback>
 bool kson_write_binary_memory(Callback cb, KsonStringBuffer& sb, const char* info = "<unspecified>")
@@ -2462,17 +2508,25 @@ bool kson_write_binary_memory(Callback cb, KsonStringBuffer& sb, const char* inf
 
 	bool cb_return = cb(ar);
 
-	// some sort of error got printed
-	if(!cb_return || serr_check_error())
+	// assume the most recent serr contains the specific error
+	if(!cb_return)
 	{
-		serrf("Failed to write binary: `%s`\n", info);
-		serrf("Stream size: %zu\n", sb.GetSize());
+		ASSERT(serr_check_error());
+		serrf(
+			"Failed to write binary: `%s`\n"
+			"Size: %zu\n",
+			info,
+			sb.GetSize());
 		return false;
 	}
+
+	//KsonStringBuffer::good() should always return true.
+	ASSERT(sb.good());
+
 	return true;
 }
 
-// callback has a signature <void(auto &ar)>
+// callback has a signature <bool(auto &ar)>
 // return false if you printed to serr, propogates to return.
 template<class Callback>
 bool kson_write_binary_stream(Callback cb, RWops* file, const char* info = NULL)
@@ -2490,16 +2544,33 @@ bool kson_write_binary_stream(Callback cb, RWops* file, const char* info = NULL)
 
 	bool cb_return = cb(ar);
 
-	// file->tell() will not work without this.
+	//call this for file->tell() to work (the buffer can contain unwritten bytes)
 	stream.Flush();
 
-	// some sort of error got printed
-	if(!cb_return || serr_check_error())
+	// assume the most recent serr contains the specific error
+	if(!cb_return)
 	{
-		serrf("Failed to write binary: `%s`\n", info);
-		serrf("Stream size: %d\n", file->tell());
+		ASSERT(serr_check_error());
+		serrf(
+			"Failed to write binary: `%s`\n"
+			"Size: %d\n",
+			info,
+			file->tell());
 		return false;
 	}
+
+	if(!stream.good())
+	{
+		ASSERT(serr_check_error());
+		serrf(
+			"Failed to write binary: `%s`\n"
+			"Error: stream error\n"
+			"Size: %d\n",
+			info,
+			file->tell());
+		return false;
+	}
+
 	return true;
 }
 

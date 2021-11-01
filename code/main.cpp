@@ -996,13 +996,27 @@ static int test_read_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 
+struct serialize_kson
+{
+	template<class T>
+	bool operator()(T& ar)
+	{
+		ar.StartObject();
+		ar.Key("null");
+		ar.Null();
+		ar.EndObject();
+		return true;
+	}
+};
+
 static int test_read_kson(char* file_memory, size_t& file_size)
 {
 	char temp_file[] = R"(
 //this is a comment
 {
 	/*another one!*/
-   "null":null})";
+   "null":null
+   })";
 	size_t temp_size = strlen(temp_file);
 	ASSERT(file_size > temp_size);
 
@@ -1010,22 +1024,24 @@ static int test_read_kson(char* file_memory, size_t& file_size)
 	memcpy(file_memory, temp_file, file_size);
 	file_memory[file_size] = '\0';
 
+#if 0
 	if(!kson_read_json_memory(
 		   [](auto& ar) -> bool {
 			   ar.StartObject();
 			   ar.Key("null");
 			   ar.Null();
+			   return false;
 			   ar.EndObject();
 			   return true;
 		   },
 		   file_memory,
 		   file_size,
 		   __func__))
+#endif
+	if(!kson_read_json_memory(serialize_kson{}, file_memory, file_size, __func__))
 	{
 		return -1;
 	}
-
-	
 
 	return 0;
 }
