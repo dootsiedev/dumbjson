@@ -354,6 +354,10 @@ include(code/CMakeLists.txt)
 target_link_libraries(${PROJECT_NAME} ALL_SANITIZERS)
 target_compile_options(${PROJECT_NAME} PRIVATE ${MY_COMPILER_FLAGS})
 
+if(NOT WIN32)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:_GLIBCXX_DEBUG>)
+endif()
+
 #enable this just in case (clang on linux doesn't use PIE)
 include(CheckPIESupported)
 check_pie_supported()
@@ -399,17 +403,22 @@ endif()
 # RAPIDJSON
 #
 
-#I use a really new version of rapidjson,
-#and rapidjson has not bumped their version number past 1.1.0 since a decade,
-#and ATM the package system on linux still uses a really old version of rapidjson
-#But it is possible to use vcpkg and use the "date" as a version number.
-find_package(RapidJSON CONFIG REQUIRED)
+option(DISABLE_BS_JSON "if you want to only do binary for BS_Archive" OFF)
+if(DISABLE_BS_JSON)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE DISABLE_BS_JSON)
+else()
+    #I use a really new version of rapidjson,
+    #and rapidjson has not bumped their version number past 1.1.0 since a decade,
+    #and ATM the package system on linux still uses a really old version of rapidjson
+    #But it is possible to use vcpkg and use the "date" as a version number.
+    find_package(RapidJSON CONFIG REQUIRED)
 
-#I have to set SYSTEM because there is a -Wmaybe-uninitialized warning...
-#target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${RapidJSON_INCLUDE_DIRS})
+    #I have to set SYSTEM because there is a -Wmaybe-uninitialized warning...
+    #target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${RapidJSON_INCLUDE_DIRS})
 
-#for some reason you have to use lowercase rapidjson target...
-target_link_libraries(${PROJECT_NAME} rapidjson)
+    #for some reason you have to use lowercase rapidjson target...
+    target_link_libraries(${PROJECT_NAME} rapidjson)
+endif()
 
 
 #

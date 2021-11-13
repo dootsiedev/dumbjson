@@ -28,6 +28,7 @@ Checks: >
   -modernize-use-auto,
   -bugprone-reserved-identifier,
   -readability-make-member-function-const,
+  -readability-uppercase-literal-suffix,
 #you must make sure the last THING to ends with a comma!!!
   
 

@@ -1284,7 +1284,7 @@ public:
 
 	bool Bool(bool& b)
 	{
-		return Int_CB(internal_simple_setter{b}, {});
+		return Bool_CB(internal_simple_setter{b}, {});
 	}
 	template<class Callback>
 	bool Bool_CB(Callback cb, bool)

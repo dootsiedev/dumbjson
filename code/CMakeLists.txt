@@ -5,9 +5,16 @@ add_executable(${PROJECT_NAME}
 
     code/tools/RWops.h
     code/tools/RWops.cpp
-    code/tools/dumb_json.h
-    code/tools/dumb_json.cpp
-    code/tools/kson_serializer.h
+    #code/tools/dumb_json.h
+    #code/tools/dumb_json.cpp
+    #code/tools/kson_serializer.h
+
+    code/tools/BS_archive.h
+    code/tools/BS_binary.h
+    code/tools/BS_json.h
+    code/tools/BS_json.cpp
+    code/tools/BS_stream.h
+    code/tools/BS_stream.cpp
 )
 
 #I'm not using this to speed up compilation,

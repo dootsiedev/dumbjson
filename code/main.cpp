@@ -1,6 +1,7 @@
 #include "global.h"
-#include "tools/kson_serializer.h"
-#include "tools/dumb_json.h"
+#include "tools/BS_stream.h"
+//#include "tools/kson_serializer.h"
+//#include "tools/dumb_json.h"
 #include "3rd_party/utf8/core.hpp"
 
 #include "tools/RWops.h"
@@ -10,6 +11,8 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+
+#if 0
 
 static int test_object_1(char* file_memory, size_t& file_size)
 {
@@ -404,6 +407,8 @@ struct data_type
 	template<class Archive>
 	bool kson_serialize(Archive& ar);
 
+	bool Serialize(BS_Archive& ar);
+
 	bool operator==(const data_type& rhs) const
 	{
 		return i == rhs.i && d == rhs.d && s == rhs.s;
@@ -653,7 +658,6 @@ bool data_type::kson_serialize(Archive& ar)
 	ar.EndObject();
 	return true;
 }
-
 template<class Archive>
 bool kson_array_of_objects(Archive& ar, std::vector<data_type>& data)
 {
@@ -1045,6 +1049,7 @@ static int test_read_kson(char* file_memory, size_t& file_size)
 
 	return 0;
 }
+#endif
 
 // disabled because of the warnings on release, and wall of text
 #if 0
@@ -1482,6 +1487,276 @@ static int test_error_1(char* file_memory, size_t& file_size)
 	return 0;
 }
 #endif
+/*struct serialize_kson : public BS_Serializable
+{
+	bool Serialize(BS_Archive* ar) override
+	{
+		ar->StartObject();
+		ar->Key("null");
+		ar->Null();
+		ar->EndObject();
+		return ar->Finish(NULL);
+	}
+};*/
+
+struct bs_data
+{
+	bool b;
+
+	int8_t i8;
+	int16_t i16;
+	int32_t i32;
+	int64_t i64;
+
+	uint8_t u8;
+	uint16_t u16;
+	uint32_t u32;
+	uint64_t u64;
+
+	float f;
+	double d;
+
+	std::string str;
+	std::string str2;
+
+	std::string data;
+	std::string data2;
+
+	void Serialize(BS_Archive& ar)
+	{
+		ar.StartObject();
+		ar.Key("b");
+		ar.Bool(b);
+
+		ar.Key("i8");
+		ar.Int8(i8);
+		ar.Key("i16");
+		ar.Int16(i16);
+		ar.Key("i32");
+		ar.Int32(i32);
+		ar.Key("i64");
+		ar.Int64(i64);
+
+		ar.Key("u8");
+		ar.Uint8(u8);
+		ar.Key("u16");
+		ar.Uint16(u16);
+		ar.Key("u32");
+		ar.Uint32(u32);
+		ar.Key("u64");
+		ar.Uint64(u64);
+
+		ar.Key("f");
+		ar.Float(f);
+		ar.Key("d");
+		ar.Double(d);
+
+		ar.Key("str");
+		ar.String(str);
+		ar.Key("str2");
+		ar.StringZ(str2, 4);
+
+		ar.Key("data");
+		ar.Data(data);
+		ar.Key("data2");
+		ar.DataZ(data2, 4);
+
+		ar.EndObject();
+	}
+
+	bool operator==(const bs_data& rhs) const
+	{
+		return b == rhs.b && i8 == rhs.i8 && i16 == rhs.i16 && i32 == rhs.i32 && i64 == rhs.i64 &&
+			   u8 == rhs.u8 && u16 == rhs.u16 && u32 == rhs.u32 && u64 == rhs.u64 && d == rhs.d &&
+			   f == rhs.f && str == rhs.str && str2 == rhs.str2 && data == rhs.data &&
+			   data2 == rhs.data2;
+	}
+	bool operator!=(const bs_data& rhs) const
+	{
+		return !(*this == rhs);
+	}
+};
+
+class ArraySerialize : public BS_Serializable
+{
+public:
+	std::vector<bs_data>& data;
+
+	explicit ArraySerialize(std::vector<bs_data>& data_)
+	: data(data_)
+	{
+	}
+
+	void Serialize(BS_Archive& ar) override
+	{
+		ar.StartObject();
+
+		// this is a drawback of using kson,
+		// which is the requirement of manually sized arrays.
+		ar.Key("size");
+		ASSERT(std::size(data) <= std::numeric_limits<uint16_t>::max());
+		uint16_t test_array_size = static_cast<uint16_t>(std::size(data));
+
+		BS_min_max_state<uint16_t> size_cb_state{test_array_size, 0, 4};
+		if(!ar.Uint16_CB(test_array_size, decltype(size_cb_state)::call, &size_cb_state))
+		{
+			// exit early
+			return;
+		}
+
+		if(ar.IsReader())
+		{
+			data.resize(test_array_size);
+		}
+
+		ar.Key("array");
+		ar.StartArray();
+		for(bs_data& entry : data)
+		{
+			entry.Serialize(ar);
+		}
+		ar.EndArray();
+
+		ar.EndObject();
+	}
+};
+
+static const bs_data bs_expected_array[] = {
+	{false, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, "", "", "", ""},
+	{true, 1, 2, 3, 4, 5, 6, 7, 8, 9.9f, 10.10, "1", "1111", "2", "2222"},
+	{false,
+	 std::numeric_limits<int8_t>::min(),
+	 std::numeric_limits<int16_t>::min(),
+	 std::numeric_limits<int32_t>::min(),
+	 std::numeric_limits<int64_t>::min(),
+	 std::numeric_limits<uint8_t>::min(),
+	 std::numeric_limits<uint16_t>::min(),
+	 std::numeric_limits<uint32_t>::min(),
+	 std::numeric_limits<uint64_t>::min(),
+	 std::numeric_limits<float>::min(),
+	 std::numeric_limits<double>::min(),
+	 "",
+	 "1111",
+	 "",
+	 "1212"},
+	{false,
+	 std::numeric_limits<int8_t>::min(),
+	 std::numeric_limits<int16_t>::max(),
+	 std::numeric_limits<int32_t>::max(),
+	 std::numeric_limits<int64_t>::max(),
+	 std::numeric_limits<uint8_t>::max(),
+	 std::numeric_limits<uint16_t>::max(),
+	 std::numeric_limits<uint32_t>::max(),
+	 std::numeric_limits<uint64_t>::max(),
+	 std::numeric_limits<float>::max(),
+	 std::numeric_limits<double>::max(),
+	 std::string(100, 'a'),
+	 "1111",
+	 std::string(100, 'a'),
+	 "1212"}};
+
+static int g_bs_flag = 0;
+
+static int test_BS_1(char* file_memory, size_t& file_size)
+{
+	// sadly the StringBuffer is much slower than the file stream because
+	// this has a non absolute memory complexity (unfair comparison)
+	BS_StringBuffer sb;
+	{
+		// copy the contents in.
+		std::vector<bs_data> input(
+			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
+		ArraySerialize test(input);
+
+		if(!BS_Write_Memory(test, sb, g_bs_flag, __func__))
+		{
+			return -1;
+		}
+
+		file_size = (sb.GetLength() > file_size) ? file_size : sb.GetLength();
+		memcpy(file_memory, sb.GetString(), file_size);
+		file_memory[file_size] = '\0';
+	}
+	{
+		std::vector<bs_data> result;
+		ArraySerialize test(result);
+
+		if(!BS_Read_Memory(test, sb.GetString(), sb.GetLength(), g_bs_flag, __func__))
+		{
+			return -1;
+		}
+
+		if(result.size() != std::size(bs_expected_array))
+		{
+			serrf(
+				"mismatching array, expected: %zu, result: %zu\n",
+				std::size(bs_expected_array),
+				result.size());
+			return -1;
+		}
+		for(size_t i = 0; i < std::size(bs_expected_array); ++i)
+		{
+			if(result.at(i) != bs_expected_array[i])
+			{
+				serrf("mismatching entry at: %zu\n", i);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
+static int test_BS_2(char* file_memory, size_t& file_size)
+{
+	{
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
+		if(!file) return -1;
+
+		// copy the contents in.
+		std::vector<bs_data> input(
+			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
+		ArraySerialize test(input);
+
+		if(!BS_Write_Stream(test, file.get(), g_bs_flag))
+		{
+			return -1;
+		}
+
+		int get_file_size;
+		if((get_file_size = file->tell()) == -1) return -1;
+		file_size = get_file_size;
+	}
+	{
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
+		if(!file) return -1;
+
+		std::vector<bs_data> result;
+		ArraySerialize test(result);
+
+		if(!BS_Read_Stream(test, file.get(), g_bs_flag))
+		{
+			return -1;
+		}
+
+		if(result.size() != std::size(bs_expected_array))
+		{
+			serrf(
+				"mismatching array, expected: %zu, result: %zu\n",
+				std::size(bs_expected_array),
+				result.size());
+			return -1;
+		}
+		for(size_t i = 0; i < std::size(bs_expected_array); ++i)
+		{
+			if(result.at(i) != bs_expected_array[i])
+			{
+				serrf("mismatching entry at: %zu\n", i);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
 
 // possible todo's:
 // the time benchmark is vague because it doesn't split the write/read time.
@@ -1495,7 +1770,7 @@ int main(int, char**)
 	TIMER_U t1;
 	TIMER_U t2;
 
-	char file_memory[9999];
+	char file_memory[999999];
 	size_t file_size = sizeof(file_memory);
 
 	struct job_type
@@ -1503,16 +1778,27 @@ int main(int, char**)
 		const char* name;
 		int (*pfn)(char*, size_t&);
 	} test_jobs[] = {
+#if 0
 		{"test_object_1", test_object_1},
 		{"test_array_1", test_array_1},
 		{"test_array_of_objects_1", test_array_of_objects_1},
 		{"test_array_of_objects_2", test_array_of_objects_2},
+		
 		{"test_kson_json_stream", test_kson_json_stream},
 		{"test_kson_json_memory", test_kson_json_memory},
 		{"test_kson_binary_stream", test_kson_binary_stream},
 		{"test_kson_binary_memory", test_kson_binary_memory},
+		{"test_read_kson", test_read_kson},
 		{"test_read_1", test_read_1},
-		{"test_read_kson", test_read_kson}};
+#endif
+
+		{"test_BS_1", test_BS_1},
+		{"test_BS_2", test_BS_2}
+	};
+
+#ifndef DISABLE_BS_JSON
+	slog("===START JSON===\n");
+	g_bs_flag = BS_FLAG_JSON;
 
 	for(auto& job : test_jobs)
 	{
@@ -1529,6 +1815,29 @@ int main(int, char**)
 		file_memory[file_size] = '\0';
 
 		slogf("%s, ms: %f\n", job.name, timer_delta_ms(t1, t2));
+		slogf("size: %zu\n", file_size);
+		slogf("[[[\n%s\n]]]\n", file_memory);
+	}
+#endif
+
+	slog("===START BINARY===\n");
+	g_bs_flag = BS_FLAG_BINARY;
+	for(auto& job : test_jobs)
+	{
+		file_size = sizeof(file_memory) - 1;
+
+		t1 = timer_now();
+		if(job.pfn(file_memory, file_size) < 0)
+		{
+			ASSERT(serr_check_error());
+			return -1;
+		}
+		t2 = timer_now();
+
+		file_memory[file_size] = '\0';
+
+		slogf("%s, ms: %f\n", job.name, timer_delta_ms(t1, t2));
+		slogf("size: %zu\n", file_size);
 		slogf("[[[\n%s\n]]]\n", file_memory);
 	}
 
