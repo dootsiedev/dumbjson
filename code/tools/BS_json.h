@@ -148,7 +148,7 @@ public:
 		if(u > max_size)
 		{
 			serrf("number too large, max: %zu, result: %u\n", max_size, u);
-		return false;
+			return false;
 		}
 		return call(static_cast<int>(u), ud);
 	}
@@ -432,7 +432,7 @@ public:
 	}
 	bool Default()
 	{
-		serrf("expected key: \"%s\"\n", s);
+		serrf("expected key: \"%.*s\"\n", static_cast<int>(size), s);
 		return false;
 	}
 	bool Key(const char* str, rj::SizeType length, bool)
@@ -441,7 +441,12 @@ public:
 		{
 			return true;
 		}
-		serrf("mismatching keys expected: \"%s\", result: \"%s\"\n", str, s);
+		serrf(
+			"mismatching keys expected: \"%.*s\", result: \"%.*s\"\n",
+			static_cast<int>(length),
+			str,
+			static_cast<int>(size),
+			s);
 		return false;
 	}
 };
