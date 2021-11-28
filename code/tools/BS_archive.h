@@ -207,37 +207,18 @@ struct BS_min_max_state
 	{
 		BS_min_max_state* state = reinterpret_cast<BS_min_max_state*>(ud);
 
-		if(t > state->maximum)
-		{
-			// use an ugly PRId64, but this won't work for uint64_t
-			// it will overflow the incorrect value, but the math works.)
-			serrf(
-				"number too large, max: %" PRId64 ", result: %" PRId64 "\n",
-				static_cast<int64_t>(std::numeric_limits<T>::max()),
-				static_cast<int64_t>(t));
-			return false;
-		}
-		if(t < state->minimum)
-		{
-			serrf(
-				"number too large, max: %" PRId64 ", result: %" PRId64 "\n",
-				static_cast<int64_t>(std::numeric_limits<T>::min()),
-				static_cast<int64_t>(t));
-			return false;
-		}
-
 		if(t < state->minimum)
 		{
 			// printf + generics don't mix up well, better use a stringstream.
 			std::ostringstream oss;
-			oss << "error result too small: " << t << " < min: " << state->minimum;
+			oss << "number too small, min: " << state->minimum << ", result: " << t;
 			serrf("%s\n", oss.str().c_str());
 			return false;
 		}
 		if(t > state->maximum)
 		{
 			std::ostringstream oss;
-			oss << "error result too big: " << t << " > max: " << state->maximum;
+			oss << "number too large, max: " << state->maximum << ", result: " << t;
 			serrf("%s\n", oss.str().c_str());
 			return false;
 		}

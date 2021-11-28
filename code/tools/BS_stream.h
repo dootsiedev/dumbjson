@@ -75,7 +75,7 @@ struct BS_MemoryStream
 	}
 };
 
-#if 0
+#ifndef DISABLE_BS_JSON
 #include <rapidjson/stringbuffer.h>
 
 namespace rj = rapidjson;
@@ -94,7 +94,7 @@ struct BS_StringBuffer : rj::StringBuffer
 		return true;
 	}
 };
-#endif
+#else
 struct BS_StringBuffer
 {
 	typedef char Ch;
@@ -164,6 +164,7 @@ struct BS_StringBuffer
 		return true;
 	}
 };
+#endif
 
 // This is copy pasted from rapidjson::FileReadStream, but modified for use by RWops.
 class BS_ReadStream

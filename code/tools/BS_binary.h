@@ -264,7 +264,7 @@ public:
 	{
 		(void)str; // unused
 		ASSERT(max_size <= BS_MAX_STRING_SIZE);
-		char buf[BS_MAX_STRING_SIZE];
+		char buf[BS_MAX_STRING_SIZE + 1];
 		uint16_t size;
 
 		if(!Uint16(size))
@@ -277,11 +277,12 @@ public:
 			serrf("string too large, max: %zu result: %u\n", max_size, size);
 			return false;
 		}
-
-		for(size_t i = 0; i < size; ++i)
+		size_t i;
+		for(i = 0; i < size; ++i)
 		{
 			buf[i] = stream.Take();
 		}
+		buf[i] = '\0';
 
 		error = error || !stream.good() || !cb(buf, size, ud);
 		return !error;
