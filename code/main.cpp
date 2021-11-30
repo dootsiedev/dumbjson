@@ -6,12 +6,6 @@
 
 #include "tools/RWops.h"
 
-#include <SDL2/SDL.h>
-#include <cfloat>
-#include <cmath>
-#include <cstdint>
-#include <limits>
-
 #if 0
 
 static int test_object_1(char* file_memory, size_t& file_size)
@@ -1564,6 +1558,7 @@ struct bs_data
 		ar.EndObject();
 	}
 
+	// C++20 can avoid this with the default compare operator
 	bool operator==(const bs_data& rhs) const
 	{
 		return b == rhs.b && i8 == rhs.i8 && i16 == rhs.i16 && i32 == rhs.i32 && i64 == rhs.i64 &&
@@ -1577,13 +1572,87 @@ struct bs_data
 	}
 };
 
+// not part of bs_data because of constructor problems from unique_ptr.
+struct bs_custom
+{
+	std::unique_ptr<char[]> custom;
+	size_t custom_len = 0;
+	std::string utf8;
+	explicit bs_custom() = default;
+	explicit bs_custom(std::string_view raw_, std::string utf8_)
+	: utf8(std::move(utf8_))
+	{
+		raw_cb(raw_.data(), raw_.size());
+	}
+
+	bs_custom(const bs_custom& rhs)
+	: utf8(rhs.utf8)
+	{
+		raw_cb(rhs.custom.get(), rhs.custom_len);
+	}
+
+	static bool shim_raw_cb(const char* data, size_t length, void* ud)
+	{
+		return reinterpret_cast<bs_custom*>(ud)->raw_cb(data, length);
+	}
+	bool raw_cb(const char* data, size_t length)
+	{
+		custom.reset(new char[length]);
+		memcpy(custom.get(), data, length);
+		custom_len = length;
+		return true;
+	}
+
+	static bool shim_utf8_cb(const char* data, size_t length, void* ud)
+	{
+		return reinterpret_cast<bs_custom*>(ud)->utf8_cb(data, length);
+	}
+	bool utf8_cb(const char* data, size_t length)
+	{
+		if(!utf8::is_valid(data, data + length))
+		{
+			// you can use \xa0\xa1 to check
+			serr("invalid utf8\n");
+			return false;
+		}
+		utf8 = std::string(data, length);
+		return true;
+	}
+
+	void Serialize(BS_Archive& ar)
+	{
+		ar.StartObject();
+
+		ar.Key("raw");
+		ar.Data_CB(std::string_view(custom.get(), custom_len), shim_raw_cb, this);
+
+		ar.Key("utf8");
+		ar.String_CB(utf8, shim_utf8_cb, this);
+
+		ar.EndObject();
+	}
+
+	bool operator==(const bs_custom& rhs) const
+	{
+		return custom_len == rhs.custom_len &&
+			   memcmp(custom.get(), rhs.custom.get(), custom_len) == 0 && utf8 == rhs.utf8;
+	}
+
+	bool operator!=(const bs_custom& rhs) const
+	{
+		return !(*this == rhs);
+	}
+};
+
 class ArraySerialize : public BS_Serializable
 {
 public:
 	std::vector<bs_data>& data;
+	std::vector<bs_custom>& custom;
 
-	explicit ArraySerialize(std::vector<bs_data>& data_)
+	explicit ArraySerialize(std::vector<bs_data>& data_, std::vector<bs_custom>& custom_)
 	: data(data_)
+	, custom(custom_)
 	{
 	}
 
@@ -1591,11 +1660,11 @@ public:
 	{
 		ar.StartObject();
 
-		// this is a drawback of using kson,
-		// which is the requirement of manually sized arrays.
+		// this is a drawback of using the BS_archive,
+		// which is the requirement of manually storing the size of arrays.
 		ar.Key("size");
 		ASSERT(std::size(data) <= std::numeric_limits<uint16_t>::max());
-		uint16_t test_array_size = static_cast<uint16_t>(std::size(data));
+		uint16_t test_array_size = std::size(data);
 
 		BS_min_max_state<uint16_t> size_cb_state{test_array_size, 0, 4};
 		if(!ar.Uint16_CB(test_array_size, decltype(size_cb_state)::call, &size_cb_state))
@@ -1609,7 +1678,7 @@ public:
 			data.resize(test_array_size);
 		}
 
-		ar.Key("array");
+		ar.Key("data");
 		ar.StartArray();
 		for(bs_data& entry : data)
 		{
@@ -1617,7 +1686,72 @@ public:
 		}
 		ar.EndArray();
 
+		ar.Key("custom_size");
+		uint16_t custom_array_size = std::size(custom);
+		if(!ar.Uint16(custom_array_size))
+		{
+			// exit early
+			return;
+		}
+
+		if(ar.IsReader())
+		{
+			custom.resize(custom_array_size);
+		}
+
+		ar.Key("custom");
+		ar.StartArray();
+		for(bs_custom& entry : custom)
+		{
+			entry.Serialize(ar);
+		}
+		ar.EndArray();
+
 		ar.EndObject();
+	}
+
+	bool check(
+		const bs_data* data_begin,
+		const bs_data* data_end,
+		const bs_custom* custom_begin,
+		const bs_custom* custom_end)
+	{
+		size_t data_size = data_end - data_begin;
+		if(data.size() != data_size)
+		{
+			serrf(
+				"data mismatching array size, expected: %zu, result: %zu\n",
+				data_size,
+				data.size());
+			return false;
+		}
+		for(size_t i = 0; i < data_size; ++i)
+		{
+			if(data.at(i) != data_begin[i])
+			{
+				serrf("data mismatching entry at: %zu\n", i);
+				return false;
+			}
+		}
+
+		size_t custom_size = custom_end - custom_begin;
+		if(custom.size() != custom_size)
+		{
+			serrf(
+				"custom mismatching array size, expected: %zu, result: %zu\n",
+				custom_size,
+				data.size());
+			return false;
+		}
+		for(size_t i = 0; i < custom_size; ++i)
+		{
+			if(custom.at(i) != custom_begin[i])
+			{
+				serrf("custom mismatching entry at: %zu\n", i);
+				return false;
+			}
+		}
+		return true;
 	}
 };
 
@@ -1639,8 +1773,8 @@ static const bs_data bs_expected_array[] = {
 	 "1111",
 	 "",
 	 "1212"},
-	{false,
-	 std::numeric_limits<int8_t>::min(),
+	{true,
+	 std::numeric_limits<int8_t>::max(),
 	 std::numeric_limits<int16_t>::max(),
 	 std::numeric_limits<int32_t>::max(),
 	 std::numeric_limits<int64_t>::max(),
@@ -1655,6 +1789,12 @@ static const bs_data bs_expected_array[] = {
 	 std::string(100, 'a'),
 	 "1212"}};
 
+static const bs_custom bs_expected_custom[] = {
+	bs_custom{"data", "data"},
+	bs_custom{"", ""},
+	bs_custom{std::string(std::numeric_limits<uint16_t>::max(), 'a'), std::string(std::numeric_limits<uint16_t>::max(), 'a')},
+	bs_custom{"\r\n\x01", "\r\n\x01"}};
+
 static int g_bs_flag = 0;
 
 static int test_BS_1(char* file_memory, size_t& file_size)
@@ -1666,7 +1806,9 @@ static int test_BS_1(char* file_memory, size_t& file_size)
 		// copy the contents in.
 		std::vector<bs_data> input(
 			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
-		ArraySerialize test(input);
+		std::vector<bs_custom> input_custom(
+			bs_expected_custom, bs_expected_custom + std::size(bs_expected_custom));
+		ArraySerialize test(input, input_custom);
 
 		if(!BS_Write_Memory(test, sb, g_bs_flag, __func__))
 		{
@@ -1679,28 +1821,21 @@ static int test_BS_1(char* file_memory, size_t& file_size)
 	}
 	{
 		std::vector<bs_data> result;
-		ArraySerialize test(result);
+		std::vector<bs_custom> result_custom;
+		ArraySerialize test(result, result_custom);
 
 		if(!BS_Read_Memory(test, sb.GetString(), sb.GetLength(), g_bs_flag, __func__))
 		{
 			return -1;
 		}
 
-		if(result.size() != std::size(bs_expected_array))
+		if(!test.check(
+			   bs_expected_array,
+			   bs_expected_array + std::size(bs_expected_array),
+			   bs_expected_custom,
+			   bs_expected_custom + std::size(bs_expected_custom)))
 		{
-			serrf(
-				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(bs_expected_array),
-				result.size());
 			return -1;
-		}
-		for(size_t i = 0; i < std::size(bs_expected_array); ++i)
-		{
-			if(result.at(i) != bs_expected_array[i])
-			{
-				serrf("mismatching entry at: %zu\n", i);
-				return -1;
-			}
 		}
 	}
 	return 0;
@@ -1715,7 +1850,9 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 		// copy the contents in.
 		std::vector<bs_data> input(
 			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
-		ArraySerialize test(input);
+		std::vector<bs_custom> input_custom(
+			bs_expected_custom, bs_expected_custom + std::size(bs_expected_custom));
+		ArraySerialize test(input, input_custom);
 
 		if(!BS_Write_Stream(test, file.get(), g_bs_flag))
 		{
@@ -1731,28 +1868,21 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 		if(!file) return -1;
 
 		std::vector<bs_data> result;
-		ArraySerialize test(result);
+		std::vector<bs_custom> result_custom;
+		ArraySerialize test(result, result_custom);
 
 		if(!BS_Read_Stream(test, file.get(), g_bs_flag))
 		{
 			return -1;
 		}
 
-		if(result.size() != std::size(bs_expected_array))
+		if(!test.check(
+			   bs_expected_array,
+			   bs_expected_array + std::size(bs_expected_array),
+			   bs_expected_custom,
+			   bs_expected_custom + std::size(bs_expected_custom)))
 		{
-			serrf(
-				"mismatching array, expected: %zu, result: %zu\n",
-				std::size(bs_expected_array),
-				result.size());
 			return -1;
-		}
-		for(size_t i = 0; i < std::size(bs_expected_array); ++i)
-		{
-			if(result.at(i) != bs_expected_array[i])
-			{
-				serrf("mismatching entry at: %zu\n", i);
-				return -1;
-			}
 		}
 	}
 	return 0;
@@ -1808,7 +1938,6 @@ int main(int, char**)
 		if(job.pfn(file_memory, file_size) < 0)
 		{
 			ASSERT(serr_check_error());
-			return -1;
 		}
 		t2 = timer_now();
 
@@ -1830,7 +1959,6 @@ int main(int, char**)
 		if(job.pfn(file_memory, file_size) < 0)
 		{
 			ASSERT(serr_check_error());
-			return -1;
 		}
 		t2 = timer_now();
 

@@ -116,6 +116,15 @@ void serialize_data_group(BS_Serializer& ar, std::vector<data_type>& group_data)
 	//use output
 }
 
+or use BS_Serializable which you can use with:
+-BS_Read_Memory
+-BS_Write_Memory
+-BS_Read_Stream
+-BS_Write_Stream
+for the possible faster compile / link times 
+especially if you copy paste BS_JsonReader/Writer many times in different files.
+but the problem is that your compiler might not optimize it as well.
+
 #endif
 
 #define BS_MAX_STRING_SIZE std::numeric_limits<uint16_t>::max()
@@ -152,41 +161,41 @@ public:
 
 	virtual bool Null() = 0; // json only
 	virtual bool Bool(bool& b) = 0;
-	virtual bool Bool_CB(bool& b, BS_bool_cb cb, void* ud) = 0;
+	virtual bool Bool_CB(bool b, BS_bool_cb cb, void* ud) = 0;
 
 	virtual bool Int8(int8_t& i) = 0;
-	virtual bool Int8_CB(int8_t& i, BS_int8_cb cb, void* ud) = 0;
+	virtual bool Int8_CB(int8_t i, BS_int8_cb cb, void* ud) = 0;
 	virtual bool Int16(int16_t& i) = 0;
-	virtual bool Int16_CB(int16_t& i, BS_int16_cb cb, void* ud) = 0;
+	virtual bool Int16_CB(int16_t i, BS_int16_cb cb, void* ud) = 0;
 	virtual bool Int32(int32_t& i) = 0;
-	virtual bool Int32_CB(int32_t& i, BS_int32_cb cb, void* ud) = 0;
+	virtual bool Int32_CB(int32_t i, BS_int32_cb cb, void* ud) = 0;
 	virtual bool Int64(int64_t& i) = 0;
-	virtual bool Int64_CB(int64_t& i, BS_int64_cb cb, void* ud) = 0;
+	virtual bool Int64_CB(int64_t i, BS_int64_cb cb, void* ud) = 0;
 
 	virtual bool Uint8(uint8_t& u) = 0;
-	virtual bool Uint8_CB(uint8_t& u, BS_uint8_cb cb, void* ud) = 0;
+	virtual bool Uint8_CB(uint8_t u, BS_uint8_cb cb, void* ud) = 0;
 	virtual bool Uint16(uint16_t& u) = 0;
-	virtual bool Uint16_CB(uint16_t& u, BS_uint16_cb cb, void* ud) = 0;
+	virtual bool Uint16_CB(uint16_t u, BS_uint16_cb cb, void* ud) = 0;
 	virtual bool Uint32(uint32_t& u) = 0;
-	virtual bool Uint32_CB(uint32_t& u, BS_uint32_cb cb, void* ud) = 0;
+	virtual bool Uint32_CB(uint32_t u, BS_uint32_cb cb, void* ud) = 0;
 	virtual bool Uint64(uint64_t& u) = 0;
-	virtual bool Uint64_CB(uint64_t& u, BS_uint64_cb cb, void* ud) = 0;
+	virtual bool Uint64_CB(uint64_t u, BS_uint64_cb cb, void* ud) = 0;
 
 	virtual bool Float(float& d) = 0;
-	virtual bool Float_CB(float& d, BS_float_cb cb, void* ud) = 0;
+	virtual bool Float_CB(float d, BS_float_cb cb, void* ud) = 0;
 	virtual bool Double(double& d) = 0;
-	virtual bool Double_CB(double& d, BS_double_cb cb, void* ud) = 0;
+	virtual bool Double_CB(double d, BS_double_cb cb, void* ud) = 0;
 
 	virtual bool String(std::string& str) = 0;
-	virtual bool String_CB(std::string& str, BS_string_cb cb, void* ud) = 0;
+	virtual bool String_CB(std::string_view str, BS_string_cb cb, void* ud) = 0;
 	virtual bool StringZ(std::string& str, size_t max_size) = 0;
-	virtual bool StringZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) = 0;
+	virtual bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) = 0;
 
 	// can't use string because json cannot store binary (0-255)
 	virtual bool Data(std::string& str) = 0;
-	virtual bool Data_CB(std::string& str, BS_string_cb cb, void* ud) = 0;
+	virtual bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) = 0;
 	virtual bool DataZ(std::string& str, size_t max_size) = 0;
-	virtual bool DataZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) = 0;
+	virtual bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) = 0;
 
 	// json only
 	virtual bool Key(std::string_view str) = 0;

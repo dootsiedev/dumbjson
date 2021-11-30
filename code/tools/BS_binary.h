@@ -50,7 +50,7 @@ public:
 	{
 		return Bool_CB(b, internal_read_simple_cb<bool>, &b);
 	}
-	bool Bool_CB(bool& b, BS_bool_cb cb, void* ud) override
+	bool Bool_CB(bool b, BS_bool_cb cb, void* ud) override
 	{
 		(void)b; // unused
 		if(error) return false;
@@ -62,7 +62,7 @@ public:
 	{
 		return Int8_CB(i, internal_read_simple_cb<int8_t>, &i);
 	}
-	bool Int8_CB(int8_t& i, BS_int8_cb cb, void* ud) override
+	bool Int8_CB(int8_t i, BS_int8_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(error) return false;
@@ -74,7 +74,7 @@ public:
 	{
 		return Int16_CB(i, internal_read_simple_cb<int16_t>, &i);
 	}
-	bool Int16_CB(int16_t& i, BS_int16_cb cb, void* ud) override
+	bool Int16_CB(int16_t i, BS_int16_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(error) return false;
@@ -87,7 +87,7 @@ public:
 	{
 		return Int32_CB(i, internal_read_simple_cb<int32_t>, &i);
 	}
-	bool Int32_CB(int32_t& i, BS_int32_cb cb, void* ud) override
+	bool Int32_CB(int32_t i, BS_int32_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(error) return false;
@@ -102,7 +102,7 @@ public:
 	{
 		return Int64_CB(i, internal_read_simple_cb<int64_t>, &i);
 	}
-	bool Int64_CB(int64_t& i, BS_int64_cb cb, void* ud) override
+	bool Int64_CB(int64_t i, BS_int64_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(error) return false;
@@ -121,7 +121,7 @@ public:
 	{
 		return Uint8_CB(u, internal_read_simple_cb<uint8_t>, &u);
 	}
-	bool Uint8_CB(uint8_t& u, BS_uint8_cb cb, void* ud) override
+	bool Uint8_CB(uint8_t u, BS_uint8_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(error) return false;
@@ -133,7 +133,7 @@ public:
 	{
 		return Uint16_CB(u, internal_read_simple_cb<uint16_t>, &u);
 	}
-	bool Uint16_CB(uint16_t& u, BS_uint16_cb cb, void* ud) override
+	bool Uint16_CB(uint16_t u, BS_uint16_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(error) return false;
@@ -146,7 +146,7 @@ public:
 	{
 		return Uint32_CB(u, internal_read_simple_cb<uint32_t>, &u);
 	}
-	bool Uint32_CB(uint32_t& u, BS_uint32_cb cb, void* ud) override
+	bool Uint32_CB(uint32_t u, BS_uint32_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(error) return false;
@@ -161,7 +161,7 @@ public:
 	{
 		return Uint64_CB(u, internal_read_simple_cb<uint64_t>, &u);
 	}
-	bool Uint64_CB(uint64_t& u, BS_uint64_cb cb, void* ud) override
+	bool Uint64_CB(uint64_t u, BS_uint64_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(error) return false;
@@ -180,7 +180,7 @@ public:
 	{
 		return Float_CB(d, internal_read_simple_cb<float>, &d);
 	}
-	bool Float_CB(float& d, BS_float_cb cb, void* ud) override
+	bool Float_CB(float d, BS_float_cb cb, void* ud) override
 	{
 		(void)d; // unused
 		uint32_t tmp;
@@ -208,7 +208,7 @@ public:
 	{
 		return Double_CB(d, internal_read_simple_cb<double>, &d);
 	}
-	bool Double_CB(double& d, BS_double_cb cb, void* ud) override
+	bool Double_CB(double d, BS_double_cb cb, void* ud) override
 	{
 		(void)d; // unused
 		uint64_t tmp;
@@ -236,7 +236,7 @@ public:
 	{
 		return DataZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
 	}
-	bool String_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool String_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
 		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
@@ -244,7 +244,7 @@ public:
 	{
 		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
 	}
-	bool StringZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
+	bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
 		return DataZ_CB(str, max_size, cb, ud);
 	}
@@ -252,7 +252,7 @@ public:
 	{
 		return DataZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
 	}
-	bool Data_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
 		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
@@ -260,7 +260,7 @@ public:
 	{
 		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
 	}
-	bool DataZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
+	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
 		(void)str; // unused
 		ASSERT(max_size <= BS_MAX_STRING_SIZE);
@@ -353,7 +353,7 @@ public:
 		stream.Put(b);
 		return stream.good();
 	}
-	bool Bool_CB(bool& b, BS_bool_cb cb, void* ud) override
+	bool Bool_CB(bool b, BS_bool_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -364,7 +364,7 @@ public:
 		uint8_t tmp = static_cast<uint8_t>(i);
 		return Uint8(tmp);
 	}
-	bool Int8_CB(int8_t& i, BS_int8_cb cb, void* ud) override
+	bool Int8_CB(int8_t i, BS_int8_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -375,7 +375,7 @@ public:
 		uint16_t tmp = static_cast<uint16_t>(i);
 		return Uint16(tmp);
 	}
-	bool Int16_CB(int16_t& i, BS_int16_cb cb, void* ud) override
+	bool Int16_CB(int16_t i, BS_int16_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -386,7 +386,7 @@ public:
 		uint32_t tmp = static_cast<uint32_t>(i);
 		return Uint32(tmp);
 	}
-	bool Int32_CB(int32_t& i, BS_int32_cb cb, void* ud) override
+	bool Int32_CB(int32_t i, BS_int32_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -397,7 +397,7 @@ public:
 		uint64_t tmp = static_cast<uint64_t>(i);
 		return Uint64(tmp);
 	}
-	bool Int64_CB(int64_t& i, BS_int64_cb cb, void* ud) override
+	bool Int64_CB(int64_t i, BS_int64_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -408,7 +408,7 @@ public:
 		stream.Put(static_cast<char>(u));
 		return stream.good();
 	}
-	bool Uint8_CB(uint8_t& u, BS_uint8_cb cb, void* ud) override
+	bool Uint8_CB(uint8_t u, BS_uint8_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -420,7 +420,7 @@ public:
 		stream.Put(static_cast<char>(u));
 		return stream.good();
 	}
-	bool Uint16_CB(uint16_t& u, BS_uint16_cb cb, void* ud) override
+	bool Uint16_CB(uint16_t u, BS_uint16_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -434,7 +434,7 @@ public:
 		stream.Put(static_cast<char>(u));
 		return stream.good();
 	}
-	bool Uint32_CB(uint32_t& u, BS_uint32_cb cb, void* ud) override
+	bool Uint32_CB(uint32_t u, BS_uint32_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -452,7 +452,7 @@ public:
 		stream.Put(static_cast<char>(u));
 		return stream.good();
 	}
-	bool Uint64_CB(uint64_t& u, BS_uint64_cb cb, void* ud) override
+	bool Uint64_CB(uint64_t u, BS_uint64_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -464,7 +464,7 @@ public:
 		memcpy(&fhold, &d, sizeof(fhold));
 		return Uint32(fhold);
 	}
-	bool Float_CB(float& d, BS_float_cb cb, void* ud) override
+	bool Float_CB(float d, BS_float_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -476,7 +476,7 @@ public:
 		memcpy(&fhold, &d, sizeof(fhold));
 		return Uint64(fhold);
 	}
-	bool Double_CB(double& d, BS_double_cb cb, void* ud) override
+	bool Double_CB(double d, BS_double_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
@@ -486,34 +486,34 @@ public:
 	{
 		return DataZ(str, BS_MAX_STRING_SIZE);
 	}
-	bool String_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool String_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
-		(void)cb;
-		(void)ud; // unused
-		return DataZ(str, BS_MAX_STRING_SIZE);
+		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
 	bool StringZ(std::string& str, size_t max_size) override
 	{
 		return DataZ(str, max_size);
 	}
-	bool StringZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
+	bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
-		(void)cb;
-		(void)ud; // unused
-		return DataZ(str, max_size);
+		return DataZ_CB(str, max_size, cb, ud);
 	}
 	bool Data(std::string& str) override
 	{
 		return DataZ(str, BS_MAX_STRING_SIZE);
 	}
-	bool Data_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
-		(void)cb;
-		(void)ud; // unused
-		return DataZ(str, BS_MAX_STRING_SIZE);
+		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
 	bool DataZ(std::string& str, size_t max_size) override
 	{
+		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
+	}
+	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
+	{
+		(void)cb;
+		(void)ud; // unused
 		(void)max_size; // I should check this, but how would the error propogate?
 		ASSERT(max_size <= BS_MAX_STRING_SIZE);
 		ASSERT(str.size() <= max_size);
@@ -527,12 +527,6 @@ public:
 			stream.Put(c);
 		}
 		return stream.good();
-	}
-	bool DataZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
-	{
-		(void)cb;
-		(void)ud; // unused
-		return DataZ(str, max_size);
 	}
 	bool Key(std::string_view str) override
 	{

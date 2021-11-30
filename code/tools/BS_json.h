@@ -601,7 +601,7 @@ public:
 	{
 		return Bool_CB(b, internal_read_simple_cb<bool>, &b);
 	}
-	bool Bool_CB(bool& b, BS_bool_cb cb, void* ud) override
+	bool Bool_CB(bool b, BS_bool_cb cb, void* ud) override
 	{
 		(void)b; // unused
 		if(reader.HasParseError()) return false;
@@ -613,7 +613,7 @@ public:
 	{
 		return Int8_CB(i, internal_read_simple_cb<int8_t>, &i);
 	}
-	bool Int8_CB(int8_t& i, BS_int8_cb cb, void* ud) override
+	bool Int8_CB(int8_t i, BS_int8_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(reader.HasParseError()) return false;
@@ -624,7 +624,7 @@ public:
 	{
 		return Int16_CB(i, internal_read_simple_cb<int16_t>, &i);
 	}
-	bool Int16_CB(int16_t& i, BS_int16_cb cb, void* ud) override
+	bool Int16_CB(int16_t i, BS_int16_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(reader.HasParseError()) return false;
@@ -635,7 +635,7 @@ public:
 	{
 		return Int32_CB(i, internal_read_simple_cb<int32_t>, &i);
 	}
-	bool Int32_CB(int32_t& i, BS_int32_cb cb, void* ud) override
+	bool Int32_CB(int32_t i, BS_int32_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(reader.HasParseError()) return false;
@@ -646,7 +646,7 @@ public:
 	{
 		return Int64_CB(i, internal_read_simple_cb<int64_t>, &i);
 	}
-	bool Int64_CB(int64_t& i, BS_int64_cb cb, void* ud) override
+	bool Int64_CB(int64_t i, BS_int64_cb cb, void* ud) override
 	{
 		(void)i; // unused
 		if(reader.HasParseError()) return false;
@@ -658,7 +658,7 @@ public:
 	{
 		return Uint8_CB(u, internal_read_simple_cb<uint8_t>, &u);
 	}
-	bool Uint8_CB(uint8_t& u, BS_uint8_cb cb, void* ud) override
+	bool Uint8_CB(uint8_t u, BS_uint8_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(reader.HasParseError()) return false;
@@ -669,7 +669,7 @@ public:
 	{
 		return Uint16_CB(u, internal_read_simple_cb<uint16_t>, &u);
 	}
-	bool Uint16_CB(uint16_t& u, BS_uint16_cb cb, void* ud) override
+	bool Uint16_CB(uint16_t u, BS_uint16_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(reader.HasParseError()) return false;
@@ -680,7 +680,7 @@ public:
 	{
 		return Uint32_CB(u, internal_read_simple_cb<uint32_t>, &u);
 	}
-	bool Uint32_CB(uint32_t& u, BS_uint32_cb cb, void* ud) override
+	bool Uint32_CB(uint32_t u, BS_uint32_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(reader.HasParseError()) return false;
@@ -691,7 +691,7 @@ public:
 	{
 		return Uint64_CB(u, internal_read_simple_cb<uint64_t>, &u);
 	}
-	bool Uint64_CB(uint64_t& u, BS_uint64_cb cb, void* ud) override
+	bool Uint64_CB(uint64_t u, BS_uint64_cb cb, void* ud) override
 	{
 		(void)u; // unused
 		if(reader.HasParseError()) return false;
@@ -703,7 +703,7 @@ public:
 	{
 		return Float_CB(d, internal_read_simple_cb<float>, &d);
 	}
-	bool Float_CB(float& d, BS_float_cb cb, void* ud) override
+	bool Float_CB(float d, BS_float_cb cb, void* ud) override
 	{
 		(void)d; // unused
 		if(reader.HasParseError()) return false;
@@ -721,7 +721,7 @@ public:
 	{
 		return Double_CB(d, internal_read_simple_cb<double>, &d);
 	}
-	bool Double_CB(double& d, BS_double_cb cb, void* ud) override
+	bool Double_CB(double d, BS_double_cb cb, void* ud) override
 	{
 		(void)d; // unused
 		if(reader.HasParseError()) return false;
@@ -740,7 +740,7 @@ public:
 	{
 		return StringZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
 	}
-	bool String_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool String_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
 		return StringZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
@@ -748,7 +748,7 @@ public:
 	{
 		return StringZ_CB(str, max_size, internal_read_string_cb, &str);
 	}
-	bool StringZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
+	bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
 		(void)str;
 		if(reader.HasParseError()) return false;
@@ -761,7 +761,7 @@ public:
 	{
 		return Data_CB(str, internal_read_string_cb, &str);
 	}
-	bool Data_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
 		(void)str;
 		if(reader.HasParseError()) return false;
@@ -772,7 +772,7 @@ public:
 	{
 		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
 	}
-	bool DataZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
+	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
 		(void)str;
 		if(reader.HasParseError()) return false;
@@ -859,31 +859,34 @@ public:
 		good = good && CHECK(writer.Bool(b));
 		return good;
 	}
-	bool Bool_CB(bool& b, BS_bool_cb cb, void* ud) override
+	bool Bool_CB(bool b, BS_bool_cb cb, void* ud) override
 	{
-		good = good && CHECK(cb(b, ud));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Bool(b));
 		return good;
 	}
 	bool Int8(int8_t& i) override
 	{
-		return Int8_CB(i, internal_read_simple_cb<int8_t>, &i);
+		good = good && CHECK(writer.Int(i));
+		return good;
 	}
-	bool Int8_CB(int8_t& i, BS_int8_cb cb, void* ud) override
+	bool Int8_CB(int8_t i, BS_int8_cb cb, void* ud) override
 	{
-		internal_int_promote_json_handler<int8_t> handler(cb, ud);
-		good = good && CHECK(handler.Int(i));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Int(i));
 		return good;
 	}
 	bool Int16(int16_t& i) override
 	{
-		return Int16_CB(i, internal_read_simple_cb<int16_t>, &i);
+		good = good && CHECK(writer.Int(i));
+		return good;
 	}
-	bool Int16_CB(int16_t& i, BS_int16_cb cb, void* ud) override
+	bool Int16_CB(int16_t i, BS_int16_cb cb, void* ud) override
 	{
-		internal_int_promote_json_handler<int16_t> handler(cb, ud);
-		good = good && CHECK(handler.Int(i));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Int(i));
 		return good;
 	}
@@ -892,9 +895,10 @@ public:
 		good = good && CHECK(writer.Int(i));
 		return good;
 	}
-	bool Int32_CB(int32_t& i, BS_int32_cb cb, void* ud) override
+	bool Int32_CB(int32_t i, BS_int32_cb cb, void* ud) override
 	{
-		good = good && CHECK(cb(i, ud));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Int(i));
 		return good;
 	}
@@ -903,31 +907,34 @@ public:
 		good = good && CHECK(writer.Int64(i));
 		return good;
 	}
-	bool Int64_CB(int64_t& i, BS_int64_cb cb, void* ud) override
+	bool Int64_CB(int64_t i, BS_int64_cb cb, void* ud) override
 	{
-		good = good && CHECK(cb(i, ud));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Int64(i));
 		return good;
 	}
 	bool Uint8(uint8_t& u) override
 	{
-		return Uint8_CB(u, internal_read_simple_cb<uint8_t>, &u);
+		good = good && CHECK(writer.Uint(u));
+		return good;
 	}
-	bool Uint8_CB(uint8_t& u, BS_uint8_cb cb, void* ud) override
+	bool Uint8_CB(uint8_t u, BS_uint8_cb cb, void* ud) override
 	{
-		internal_uint_promote_json_handler<uint8_t> handler(cb, ud);
-		good = good && CHECK(handler.Uint(u));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Uint(u));
 		return good;
 	}
 	bool Uint16(uint16_t& u) override
 	{
-		return Uint16_CB(u, internal_read_simple_cb<uint16_t>, &u);
+		good = good && CHECK(writer.Uint(u));
+		return good;
 	}
-	bool Uint16_CB(uint16_t& u, BS_uint16_cb cb, void* ud) override
+	bool Uint16_CB(uint16_t u, BS_uint16_cb cb, void* ud) override
 	{
-		internal_uint_promote_json_handler<uint16_t> handler(cb, ud);
-		good = good && CHECK(handler.Uint(u));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Uint(u));
 		return good;
 	}
@@ -936,9 +943,10 @@ public:
 		good = good && CHECK(writer.Uint(u));
 		return good;
 	}
-	bool Uint32_CB(uint32_t& u, BS_uint32_cb cb, void* ud) override
+	bool Uint32_CB(uint32_t u, BS_uint32_cb cb, void* ud) override
 	{
-		good = good && CHECK(cb(u, ud));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Uint(u));
 		return good;
 	}
@@ -947,9 +955,10 @@ public:
 		good = good && CHECK(writer.Uint64(u));
 		return good;
 	}
-	bool Uint64_CB(uint64_t& u, BS_uint64_cb cb, void* ud) override
+	bool Uint64_CB(uint64_t u, BS_uint64_cb cb, void* ud) override
 	{
-		good = good && CHECK(cb(u, ud));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Uint64(u));
 		return good;
 	}
@@ -958,9 +967,10 @@ public:
 		good = good && CHECK(writer.Double(d));
 		return good;
 	}
-	bool Float_CB(float& d, BS_float_cb cb, void* ud) override
+	bool Float_CB(float d, BS_float_cb cb, void* ud) override
 	{
-		good = good && CHECK(cb(d, ud));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Double(d));
 		return good;
 	}
@@ -969,51 +979,55 @@ public:
 		good = good && CHECK(writer.Double(d));
 		return good;
 	}
-	bool Double_CB(double& d, BS_double_cb cb, void* ud) override
+	bool Double_CB(double d, BS_double_cb cb, void* ud) override
 	{
-		good = good && CHECK(cb(d, ud));
+		(void)cb;
+		(void)ud;
 		good = good && CHECK(writer.Double(d));
 		return good;
 	}
 	bool String(std::string& str) override
 	{
-		return StringZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
+		return StringZ_CB(str, BS_MAX_STRING_SIZE, NULL, NULL);
 	}
-	bool String_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool String_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
 		return StringZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
 	bool StringZ(std::string& str, size_t max_size) override
 	{
-		return StringZ_CB(str, max_size, internal_read_string_cb, &str);
+		return StringZ_CB(str, max_size, NULL, NULL);
 	}
-	bool StringZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
+	bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
-		internal_string_json_handler handler(cb, ud, max_size);
-		good = good && CHECK(handler.String(str.data(), str.size(), false));
+		(void)cb;
+		(void)ud;
+		(void)max_size;
+		ASSERT(max_size <= BS_MAX_STRING_SIZE);
+		ASSERT(str.size() <= max_size);
 		good = good && CHECK(writer.String(str.data(), str.size()));
 		return good;
 	}
 	bool Data(std::string& str) override
 	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
+		return DataZ_CB(str, BS_MAX_STRING_SIZE, NULL, NULL);
 	}
-	bool Data_CB(std::string& str, BS_string_cb cb, void* ud) override
+	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
 		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
 	bool DataZ(std::string& str, size_t max_size) override
 	{
-		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
+		return DataZ_CB(str, max_size, NULL, NULL);
 	}
-	bool DataZ_CB(std::string& str, size_t max_size, BS_string_cb cb, void* ud) override
+	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
+		(void)cb;
+		(void)ud;
+		(void)max_size;
+		ASSERT(max_size <= BS_MAX_STRING_SIZE);
+		ASSERT(str.size() <= max_size);
 		std::string tmp = base64_encode(str.data(), str.size());
-		// Can't use data handler, because it decodes.
-		// The error will say this is a string error,
-		// It doesn't matter because write's should never error.
-		internal_string_json_handler handler(cb, ud, max_size);
-		good = good && CHECK(handler.String(str.data(), str.size(), false));
 		good = good && CHECK(writer.String(tmp.data(), tmp.size()));
 		return good;
 	}
