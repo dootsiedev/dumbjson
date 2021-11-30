@@ -48,7 +48,7 @@ public:
 	}
 	bool Bool(bool& b) override
 	{
-		return Bool_CB(b, internal_read_simple_cb<bool>, &b);
+		return Bool_CB({}, internal_read_simple_cb<bool>, &b);
 	}
 	bool Bool_CB(bool b, BS_bool_cb cb, void* ud) override
 	{
@@ -60,7 +60,7 @@ public:
 	}
 	bool Int8(int8_t& i) override
 	{
-		return Int8_CB(i, internal_read_simple_cb<int8_t>, &i);
+		return Int8_CB({}, internal_read_simple_cb<int8_t>, &i);
 	}
 	bool Int8_CB(int8_t i, BS_int8_cb cb, void* ud) override
 	{
@@ -72,7 +72,7 @@ public:
 	}
 	bool Int16(int16_t& i) override
 	{
-		return Int16_CB(i, internal_read_simple_cb<int16_t>, &i);
+		return Int16_CB({}, internal_read_simple_cb<int16_t>, &i);
 	}
 	bool Int16_CB(int16_t i, BS_int16_cb cb, void* ud) override
 	{
@@ -85,7 +85,7 @@ public:
 	}
 	bool Int32(int32_t& i) override
 	{
-		return Int32_CB(i, internal_read_simple_cb<int32_t>, &i);
+		return Int32_CB({}, internal_read_simple_cb<int32_t>, &i);
 	}
 	bool Int32_CB(int32_t i, BS_int32_cb cb, void* ud) override
 	{
@@ -100,7 +100,7 @@ public:
 	}
 	bool Int64(int64_t& i) override
 	{
-		return Int64_CB(i, internal_read_simple_cb<int64_t>, &i);
+		return Int64_CB({}, internal_read_simple_cb<int64_t>, &i);
 	}
 	bool Int64_CB(int64_t i, BS_int64_cb cb, void* ud) override
 	{
@@ -119,7 +119,7 @@ public:
 	}
 	bool Uint8(uint8_t& u) override
 	{
-		return Uint8_CB(u, internal_read_simple_cb<uint8_t>, &u);
+		return Uint8_CB({}, internal_read_simple_cb<uint8_t>, &u);
 	}
 	bool Uint8_CB(uint8_t u, BS_uint8_cb cb, void* ud) override
 	{
@@ -131,7 +131,7 @@ public:
 	}
 	bool Uint16(uint16_t& u) override
 	{
-		return Uint16_CB(u, internal_read_simple_cb<uint16_t>, &u);
+		return Uint16_CB({}, internal_read_simple_cb<uint16_t>, &u);
 	}
 	bool Uint16_CB(uint16_t u, BS_uint16_cb cb, void* ud) override
 	{
@@ -144,7 +144,7 @@ public:
 	}
 	bool Uint32(uint32_t& u) override
 	{
-		return Uint32_CB(u, internal_read_simple_cb<uint32_t>, &u);
+		return Uint32_CB({}, internal_read_simple_cb<uint32_t>, &u);
 	}
 	bool Uint32_CB(uint32_t u, BS_uint32_cb cb, void* ud) override
 	{
@@ -159,7 +159,7 @@ public:
 	}
 	bool Uint64(uint64_t& u) override
 	{
-		return Uint64_CB(u, internal_read_simple_cb<uint64_t>, &u);
+		return Uint64_CB({}, internal_read_simple_cb<uint64_t>, &u);
 	}
 	bool Uint64_CB(uint64_t u, BS_uint64_cb cb, void* ud) override
 	{
@@ -178,7 +178,7 @@ public:
 	}
 	bool Float(float& d) override
 	{
-		return Float_CB(d, internal_read_simple_cb<float>, &d);
+		return Float_CB({}, internal_read_simple_cb<float>, &d);
 	}
 	bool Float_CB(float d, BS_float_cb cb, void* ud) override
 	{
@@ -206,7 +206,7 @@ public:
 	}
 	bool Double(double& d) override
 	{
-		return Double_CB(d, internal_read_simple_cb<double>, &d);
+		return Double_CB({}, internal_read_simple_cb<double>, &d);
 	}
 	bool Double_CB(double d, BS_double_cb cb, void* ud) override
 	{
