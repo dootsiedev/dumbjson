@@ -1,10 +1,11 @@
-# dumbjson
-The tests have turned into a mess, this repo is just for reference.\
-This wasn't made to be used as a library that you include into your project. The "dumb" in dumbjson stands for this being a terrible, verbose, and flimsy API, but it serves my needs.\
+# BS_Archive
+This wasn't made to be used as a library that you include into your project. This isn't a high performance serialization library but it's an OK performance serialization library.\
 Credit to rapidjson's "Archiver" in the examples directory, which inspired this, and it's better than this library in simplicity.\
-Dumbjson is a Rapidjson wrapper that uses my very specific error handling which is referred to as "serr", and whatever else I personally use.\
-Kson is something extra that was thrown into here, it is completely different than Dumbjson as Dumbjson represents rapidjson's DOM API, and Kson represents the SAX api, it has a template read/write archive trick and it's able to serialize to binary.\
-But Kson cannot replace Dumbjson because kson is not Json, it is equal to binary in terms of flexibility. You should not use Kson as a configuration file that could be modified by hand.\
-The Kson api requires a newer version of rapidjson.\
-BS_Archive (BS stands for "Binary Serializer") is a better version of Kson which uses virtual function interface (but it can be more annoying than kson in some ways). The virtual functions cause an overhead over kson, but it's not as slow as I expected (and the binary serializer is sped up if I disable json due to de-virtualization). This is better because the bloat from kson is not worth it.\
-If you value performance and security and you don't care about plain text representation, I would recommend google protobuf.
+This code depends on my very specific and probably poorly designed error handling system called "serr", which is just errno replaced with a single std::string, which makes errors look like a lazy dump of information, but I like it because it's simple.\
+BS_Archive (BS stands for "Binary Serializer") uses virtual functions and C style callbacks for custom error handling. The virtual functions cause an overhead but it's not as slow as I expected, and offers nice flexibility with polymorphism. You can also avoid the virtual functions by doing manual devirtualization by using templates.\
+BS_Archive is not as flexible as json because the order of variables matter (it's not a key-value table anymore). You should not use BS_Archive as a configuration file that could be written by hand, since BS_Archive acts like binary. And note that for json arrays, you must explicitly define the size of the array before you read it (like binary), which is quite tedious.\
+The benefit of using BS_Archive is that you can dump your binary in Json format, and when using Binary, all the "keys" are optimized away so you can use long names, redundant scopes, and pretty formatting and not worry too much about performance or storage size. The Json format also has the benefit of showing the exact location of where an error occurred, and you can use custom callbacks to make logical errors (like checking the path to a file) show the name and location of the variable inside the file.\
+BS_Archive requires a newer version of rapidjson (linux packages still keep a really old version).\
+Dumbjson was the first project (why this repo is called dumbjson) and it is a Rapidjson DOM api wrapper and it will print errors if you use it correctly, but I wouldn't use it because I don't like how difficult it is to use (it's even harder than just using rapidjson normally).\
+Kson is old (and buggy) version of BS_Archive. The benefit over Kson over BS_Archive is that it offers template functions so you can use C++11 lambdas for much easier custom callbacks, and it's faster because no virtual functions and templates (might be worth revival considering the fact you can implement both BS_Archive and kson at the same time, but the performance benefit is miniscule).\
+The tests has turned into a mess, dumb_json and kson is mostly dead code, but I am keeping the code for reference.

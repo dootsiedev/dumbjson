@@ -2,6 +2,8 @@
 #include "BS_archive.h"
 #include <cstdint>
 
+//todo: the one thing I would love to implement is a SlowBinary variant that gives a path to the variable on an error.
+
 template<class InputStream>
 class BS_BinaryReader : public BS_Archive
 {

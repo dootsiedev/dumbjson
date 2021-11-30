@@ -1840,7 +1840,7 @@ static int test_BS_1(char* file_memory, size_t& file_size)
 	}
 	return 0;
 }
-
+#include "tools/BS_binary.h"
 static int test_BS_2(char* file_memory, size_t& file_size)
 {
 	{
@@ -1858,6 +1858,21 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 		{
 			return -1;
 		}
+		/*
+		there isn't a performance reason to do this,
+		if you want devirtualization, the best way is to replace
+		BS_Serializer with BS_JsonReader/BS_JsonWriter + templates
+		char buffer[1000];
+		BS_WriteStream sb(file.get(), buffer, sizeof(buffer));
+
+		BS_BinaryWriter ar(sb);
+
+		test.Serialize(ar);
+
+		if(!ar.Finish("..."))
+		{
+			return -1;
+		}*/
 
 		int get_file_size;
 		if((get_file_size = file->tell()) == -1) return -1;
@@ -1875,6 +1890,18 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 		{
 			return -1;
 		}
+
+		/*char buffer[1000];
+		BS_ReadStream sb(file.get(), buffer, sizeof(buffer));
+
+		BS_BinaryReader ar(sb);
+
+		test.Serialize(ar);
+
+		if(!ar.Finish("..."))
+		{
+			return -1;
+		}*/
 
 		if(!test.check(
 			   bs_expected_array,
@@ -1894,7 +1921,7 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 // this was supposed to be an example, not so much a test suit.
 
 // do a test pass for json and binary
-bool test_pass()
+static bool test_pass()
 {
 	TIMER_U t1;
 	TIMER_U t2;

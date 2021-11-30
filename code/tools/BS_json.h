@@ -208,7 +208,7 @@ public:
 	}
 	bool Uint64(uint64_t u)
 	{
-		if(u <= std::numeric_limits<int64_t>::max())
+		if(u <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
 		{
 			return call(static_cast<int64_t>(u), ud);
 		}
@@ -293,6 +293,8 @@ public:
 	: call(cb)
 	, ud(ud_)
 	{
+		static_assert(std::numeric_limits<T>::max() <= std::numeric_limits<unsigned>::max());
+		static_assert(std::numeric_limits<T>::min() == std::numeric_limits<unsigned>::min());
 	}
 	bool Default()
 	{
@@ -326,6 +328,7 @@ public:
 	: call(cb)
 	, ud(ud_)
 	{
+		static_assert(std::numeric_limits<T>::max() <= std::numeric_limits<int>::max());
 	}
 	bool Default()
 	{
@@ -348,7 +351,7 @@ public:
 	}
 	bool Uint(unsigned u)
 	{
-		if(u > std::numeric_limits<T>::max())
+		if(u > static_cast<unsigned>(std::numeric_limits<T>::max()))
 		{
 			serrf("number too large, max: %u, result: %u\n", std::numeric_limits<T>::max(), u);
 			return false;
