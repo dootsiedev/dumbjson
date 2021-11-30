@@ -1644,13 +1644,13 @@ struct bs_custom
 	}
 };
 
-class ArraySerialize : public BS_Serializable
+class TestSerialize : public BS_Serializable
 {
 public:
 	std::vector<bs_data>& data;
 	std::vector<bs_custom>& custom;
 
-	explicit ArraySerialize(std::vector<bs_data>& data_, std::vector<bs_custom>& custom_)
+	explicit TestSerialize(std::vector<bs_data>& data_, std::vector<bs_custom>& custom_)
 	: data(data_)
 	, custom(custom_)
 	{
@@ -1792,7 +1792,7 @@ static const bs_data bs_expected_array[] = {
 static const bs_custom bs_expected_custom[] = {
 	bs_custom{"data", "data"},
 	bs_custom{"", ""},
-	bs_custom{std::string(std::numeric_limits<uint16_t>::max(), 'a'), std::string(std::numeric_limits<uint16_t>::max(), 'a')},
+	bs_custom{std::string(100, 'a'), std::string(100, 'a')},
 	bs_custom{"\r\n\x01", "\r\n\x01"}};
 
 static int g_bs_flag = 0;
@@ -1808,7 +1808,7 @@ static int test_BS_1(char* file_memory, size_t& file_size)
 			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
 		std::vector<bs_custom> input_custom(
 			bs_expected_custom, bs_expected_custom + std::size(bs_expected_custom));
-		ArraySerialize test(input, input_custom);
+		TestSerialize test(input, input_custom);
 
 		if(!BS_Write_Memory(test, sb, g_bs_flag, __func__))
 		{
@@ -1822,7 +1822,7 @@ static int test_BS_1(char* file_memory, size_t& file_size)
 	{
 		std::vector<bs_data> result;
 		std::vector<bs_custom> result_custom;
-		ArraySerialize test(result, result_custom);
+		TestSerialize test(result, result_custom);
 
 		if(!BS_Read_Memory(test, sb.GetString(), sb.GetLength(), g_bs_flag, __func__))
 		{
@@ -1852,7 +1852,7 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
 		std::vector<bs_custom> input_custom(
 			bs_expected_custom, bs_expected_custom + std::size(bs_expected_custom));
-		ArraySerialize test(input, input_custom);
+		TestSerialize test(input, input_custom);
 
 		if(!BS_Write_Stream(test, file.get(), g_bs_flag))
 		{
@@ -1869,7 +1869,7 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 
 		std::vector<bs_data> result;
 		std::vector<bs_custom> result_custom;
-		ArraySerialize test(result, result_custom);
+		TestSerialize test(result, result_custom);
 
 		if(!BS_Read_Stream(test, file.get(), g_bs_flag))
 		{
@@ -1893,10 +1893,9 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 // This should probably be competely re-written because
 // this was supposed to be an example, not so much a test suit.
 
-int main(int, char**)
+// do a test pass for json and binary
+bool test_pass()
 {
-	slogf("hello world\n");
-
 	TIMER_U t1;
 	TIMER_U t2;
 
@@ -1926,19 +1925,12 @@ int main(int, char**)
 		{"test_BS_2", test_BS_2}
 	};
 
-#ifndef DISABLE_BS_JSON
-	slog("===START JSON===\n");
-	g_bs_flag = BS_FLAG_JSON;
-
 	for(auto& job : test_jobs)
 	{
 		file_size = sizeof(file_memory) - 1;
 
 		t1 = timer_now();
-		if(job.pfn(file_memory, file_size) < 0)
-		{
-			ASSERT(serr_check_error());
-		}
+		int res = job.pfn(file_memory, file_size);
 		t2 = timer_now();
 
 		file_memory[file_size] = '\0';
@@ -1946,27 +1938,34 @@ int main(int, char**)
 		slogf("%s, ms: %f\n", job.name, timer_delta_ms(t1, t2));
 		slogf("size: %zu\n", file_size);
 		slogf("[[[\n%s\n]]]\n", file_memory);
+		if(res < 0)
+		{
+			slogf("test failed: %s\n", job.name);
+			ASSERT(serr_check_error());
+			return false;
+		}
+	}
+	return true;
+}
+
+int main(int, char**)
+{
+	slogf("hello world\n");
+
+#ifndef DISABLE_BS_JSON
+	g_bs_flag = BS_FLAG_JSON;
+	slog("===START JSON===\n");
+	if(!test_pass())
+	{
+		return -1;
 	}
 #endif
 
 	slog("===START BINARY===\n");
 	g_bs_flag = BS_FLAG_BINARY;
-	for(auto& job : test_jobs)
+	if(!test_pass())
 	{
-		file_size = sizeof(file_memory) - 1;
-
-		t1 = timer_now();
-		if(job.pfn(file_memory, file_size) < 0)
-		{
-			ASSERT(serr_check_error());
-		}
-		t2 = timer_now();
-
-		file_memory[file_size] = '\0';
-
-		slogf("%s, ms: %f\n", job.name, timer_delta_ms(t1, t2));
-		slogf("size: %zu\n", file_size);
-		slogf("[[[\n%s\n]]]\n", file_memory);
+		return -1;
 	}
 
 	slog("done\n");
