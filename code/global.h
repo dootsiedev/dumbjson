@@ -61,7 +61,10 @@ struct nocopy
 
 typedef double TIMER_RESULT;
 
-// swtich from SDL's QPC (not MT sycned) or C++'s chrono
+// use chrono or SDL's QPC
+// but QPC's shouldn't be used if timers from other threads are compared.
+// you can also try clang's __builtin_readcyclecounter 
+// if you are measuring really tiny calucations.
 #if 0
 
 typedef std::chrono::steady_clock::time_point TIMER_U;

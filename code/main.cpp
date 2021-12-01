@@ -1516,7 +1516,9 @@ struct bs_data
 	std::string data;
 	std::string data2;
 
-	void Serialize(BS_Archive& ar)
+	// void Serialize(BS_Archive& ar)
+	template<class Archive>
+	void Serialize(Archive& ar)
 	{
 		ar.StartObject();
 		ar.Key("b");
@@ -1657,6 +1659,12 @@ public:
 	}
 
 	void Serialize(BS_Archive& ar) override
+	{
+		T_Serialize(ar);
+	}
+
+	template<class Archive>
+	void T_Serialize(Archive& ar)
 	{
 		ar.StartObject();
 
@@ -1888,6 +1896,184 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 	return 0;
 }
 
+#include "tools/BS_binary.h"
+#include "tools/BS_json.h"
+
+
+static int test_BS_3(char* file_memory, size_t& file_size)
+{
+	{
+		// copy the contents in.
+		std::vector<bs_data> input(
+			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
+		std::vector<bs_custom> input_custom(
+			bs_expected_custom, bs_expected_custom + std::size(bs_expected_custom));
+		TestSerialize test(input, input_custom);
+
+		BS_StringBuffer sb;
+		switch(g_bs_flag)
+		{
+#ifndef DISABLE_BS_JSON
+		case BS_FLAG_JSON: {
+			// instead of the pretty printer you can use the compact writer.
+			BS_JsonWriter<decltype(sb), rj::Writer<decltype(sb)>> ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(__func__))
+			{
+				return -1;
+			}
+		}
+		break;
+#endif
+		case BS_FLAG_BINARY: {
+			BS_BinaryWriter ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(__func__))
+			{
+				return -1;
+			}
+		}
+		break;
+		}
+
+		file_size = (sb.GetLength() > file_size) ? file_size : sb.GetLength();
+		memcpy(file_memory, sb.GetString(), file_size);
+		file_memory[file_size] = '\0';
+	}
+	{
+		std::vector<bs_data> result;
+		std::vector<bs_custom> result_custom;
+		TestSerialize test(result, result_custom);
+
+		BS_MemoryStream sb(file_memory, file_memory + file_size);
+
+		switch(g_bs_flag)
+		{
+#ifndef DISABLE_BS_JSON
+		case BS_FLAG_JSON: {
+			BS_JsonReader ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(__func__))
+			{
+				return -1;
+			}
+		}
+		break;
+#endif
+		case BS_FLAG_BINARY: {
+			BS_BinaryReader ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(__func__))
+			{
+				return -1;
+			}
+		}
+		break;
+		}
+
+		if(!test.check(
+			   bs_expected_array,
+			   bs_expected_array + std::size(bs_expected_array),
+			   bs_expected_custom,
+			   bs_expected_custom + std::size(bs_expected_custom)))
+		{
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static int test_BS_4(char* file_memory, size_t& file_size)
+{
+	{
+		Unique_RWops file = RWops_FromMemory(file_memory, file_size, __func__);
+		if(!file) return -1;
+
+		// copy the contents in.
+		std::vector<bs_data> input(
+			bs_expected_array, bs_expected_array + std::size(bs_expected_array));
+		std::vector<bs_custom> input_custom(
+			bs_expected_custom, bs_expected_custom + std::size(bs_expected_custom));
+		TestSerialize test(input, input_custom);
+
+		char buffer[1000];
+		BS_WriteStream sb(file.get(), buffer, sizeof(buffer));
+		switch(g_bs_flag)
+		{
+#ifndef DISABLE_BS_JSON
+		case BS_FLAG_JSON: {
+			// instead of the pretty printer you can use the compact writer.
+			BS_JsonWriter<decltype(sb), rj::Writer<decltype(sb)>> ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(file->stream_info))
+			{
+				return -1;
+			}
+		}
+		break;
+#endif
+		case BS_FLAG_BINARY: {
+			BS_BinaryWriter ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(file->stream_info))
+			{
+				return -1;
+			}
+		}
+		break;
+		}
+
+		int get_file_size;
+		if((get_file_size = file->tell()) == -1) return -1;
+		file_size = get_file_size;
+	}
+	{
+		Unique_RWops file = RWops_FromMemory_ReadOnly(file_memory, file_size, __func__);
+		if(!file) return -1;
+
+		std::vector<bs_data> result;
+		std::vector<bs_custom> result_custom;
+		TestSerialize test(result, result_custom);
+
+		char buffer[1000];
+		BS_ReadStream sb(file.get(), buffer, sizeof(buffer));
+
+		switch(g_bs_flag)
+		{
+#ifndef DISABLE_BS_JSON
+		case BS_FLAG_JSON: {
+			BS_JsonReader ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(file->stream_info))
+			{
+				return -1;
+			}
+		}
+		break;
+#endif
+		case BS_FLAG_BINARY: {
+			BS_BinaryReader ar(sb);
+			test.T_Serialize(ar);
+			if(!ar.Finish(file->stream_info))
+			{
+				return -1;
+			}
+		}
+		break;
+		}
+
+		if(!test.check(
+			   bs_expected_array,
+			   bs_expected_array + std::size(bs_expected_array),
+			   bs_expected_custom,
+			   bs_expected_custom + std::size(bs_expected_custom)))
+		{
+			return -1;
+		}
+	}
+	return 0;
+}
+
 // possible todo's:
 // the time benchmark is vague because it doesn't split the write/read time.
 // This should probably be competely re-written because
@@ -1899,7 +2085,7 @@ static bool test_pass()
 	TIMER_U t1;
 	TIMER_U t2;
 
-	char file_memory[999999];
+	char file_memory[9999];
 	size_t file_size = sizeof(file_memory);
 
 	struct job_type
@@ -1922,7 +2108,9 @@ static bool test_pass()
 #endif
 
 		{"test_BS_1", test_BS_1},
-		{"test_BS_2", test_BS_2}
+		{"test_BS_2", test_BS_2},
+		{"test_BS_3", test_BS_3},
+		{"test_BS_4", test_BS_4}
 	};
 
 	for(auto& job : test_jobs)
