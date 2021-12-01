@@ -19,8 +19,8 @@
 // TODO:
 //-Reading should give a path to the variable on an error like dumbjson.
 //-all the ReadJson handlers will print a vague "expected [TYPE]" error, replace
-//rj::BaseReaderHandler -using std::source_location (C++20) I could print the location of where the
-//error occurred.
+// rj::BaseReaderHandler -using std::source_location (C++20) I could print the location of where the
+// error occurred.
 
 // example
 #if 0
@@ -49,30 +49,52 @@ struct serialize_group_data : BS_Serializable
 	void Serialize(BS_Archive& ar) override
 	{
 		ar.StartObject();
-		ar.Key("size");
-		uint16_t size = std::size(group_data);
-		const uint16_t min_size = 0;
-		const uint16_t max_size = 2;
 
 		//you must know the size of the array before reading it unlike normal json.
-		//BS_min_max_state will include an error if the number is out of bounds.
-		BS_min_max_state<uint16_t> size_cb_state{size, min_size, max_size};
-		if(!ar.Uint16_CB(test_array_size, decltype(size_cb_state)::call, &size_cb_state))
+        //this right here is the worst part of BS_Archive.
 		{
-			//exit early because the erronious value shouldn't be used
-			return;
-		}
+			const uint32_t min_size = 0;
+			const uint32_t max_size = 2;
 
-		//the reader needs to allocate the entries to read into
-		if(Archive::IsReader)
-		{
-			data.resize(size);
+			//optional sanity checks for the writer.
+			if(ar.IsWriter())
+			{
+				ASSERT(std::size(group_data) <= std::numeric_limits<uint32_t>::max());
+				ASSERT(std::size(group_data) >= min_size);
+				ASSERT(std::size(group_data) <= max_size);
+			}
+
+			//using uint64_t would be overkill.
+			uint32_t size = std::size(group_data);
+			
+			//BS_min_max_state will include an error if the number is out of bounds.
+			BS_min_max_state<uint32_t> size_cb_state{size, min_size, max_size};
+			
+			ar.Key("size");
+			if(!ar.Uint32_CB(test_array_size, decltype(size_cb_state)::call, &size_cb_state))
+			{
+				//exit early because continuing makes no sense.
+				//note that on the first callback or stream error, 
+				//all next operations will turn into NOPs and return false.
+				return;
+			}
+
+			//the reader needs to allocate the entries to read into
+			if(Archive::IsReader)
+			{
+				data.resize(size);
+			}
 		}
 
 		ar.Key("array");
 		ar.StartArray();
 		for(data_type& entry : group_data)
 		{
+			if(!ar.Good())
+			{
+				//exit early
+				return;
+			}
 			serialize_data_type(ar, entry);
 		}
 		ar.EndArray();
@@ -88,7 +110,7 @@ struct serialize_group_data : BS_Serializable
 	//this stores the result.
 	rj::StringBuffer sb;
 
-	//this inherits BS_Serializable
+	//serialize_group_data inherits BS_Serializable
 	serialize_group_data root(input);
 
 	//call Serialize
@@ -104,7 +126,7 @@ struct serialize_group_data : BS_Serializable
 {
 	std::vector<data_type> output;
 
-	//this inherits BS_Serializable
+	//serialize_group_data inherits BS_Serializable
 	serialize_group_data root(input);
 
 	//call Serialize
