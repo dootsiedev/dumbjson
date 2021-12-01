@@ -1511,10 +1511,6 @@ struct bs_data
 	double d;
 
 	std::string str;
-	std::string str2;
-
-	std::string data;
-	std::string data2;
 
 	// void Serialize(BS_Archive& ar)
 	template<class Archive>
@@ -1549,13 +1545,6 @@ struct bs_data
 
 		ar.Key("str");
 		ar.String(str);
-		ar.Key("str2");
-		ar.StringZ(str2, 4);
-
-		ar.Key("data");
-		ar.Data(data);
-		ar.Key("data2");
-		ar.DataZ(data2, 4);
 
 		ar.EndObject();
 	}
@@ -1565,8 +1554,7 @@ struct bs_data
 	{
 		return b == rhs.b && i8 == rhs.i8 && i16 == rhs.i16 && i32 == rhs.i32 && i64 == rhs.i64 &&
 			   u8 == rhs.u8 && u16 == rhs.u16 && u32 == rhs.u32 && u64 == rhs.u64 && d == rhs.d &&
-			   f == rhs.f && str == rhs.str && str2 == rhs.str2 && data == rhs.data &&
-			   data2 == rhs.data2;
+			   f == rhs.f && str == rhs.str;
 	}
 	bool operator!=(const bs_data& rhs) const
 	{
@@ -1626,7 +1614,7 @@ struct bs_custom
 		ar.StartObject();
 
 		ar.Key("raw");
-		ar.Data_CB(std::string_view(custom.get(), custom_len), shim_raw_cb, this);
+		ar.String_CB(std::string_view(custom.get(), custom_len), shim_raw_cb, this);
 
 		ar.Key("utf8");
 		ar.String_CB(utf8, shim_utf8_cb, this);
@@ -1763,9 +1751,12 @@ public:
 	}
 };
 
+//allow null terminaters in strings.
+using namespace std::string_literals;
+
 static const bs_data bs_expected_array[] = {
-	{false, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, "", "", "", ""},
-	{true, 1, 2, 3, 4, 5, 6, 7, 8, 9.9f, 10.10, "1", "1111", "2", "2222"},
+	{false, 0, 0, 0, 0, 0, 0, 0, 0, 0.00, 0.00, ""},
+	{true, 1, 2, 3, 4, 5, 6, 7, 8, 9.9f, 10.10, "1234"},
 	{false,
 	 std::numeric_limits<int8_t>::min(),
 	 std::numeric_limits<int16_t>::min(),
@@ -1777,10 +1768,7 @@ static const bs_data bs_expected_array[] = {
 	 std::numeric_limits<uint64_t>::min(),
 	 std::numeric_limits<float>::min(),
 	 std::numeric_limits<double>::min(),
-	 "",
-	 "1111",
-	 "",
-	 "1212"},
+	 std::string(100, '\0')},
 	{true,
 	 std::numeric_limits<int8_t>::max(),
 	 std::numeric_limits<int16_t>::max(),
@@ -1792,16 +1780,13 @@ static const bs_data bs_expected_array[] = {
 	 std::numeric_limits<uint64_t>::max(),
 	 std::numeric_limits<float>::max(),
 	 std::numeric_limits<double>::max(),
-	 std::string(100, 'a'),
-	 "1111",
-	 std::string(100, 'a'),
-	 "1212"}};
+	 std::string(100, '\xFF')}};
 
 static const bs_custom bs_expected_custom[] = {
 	bs_custom{"data", "data"},
 	bs_custom{"", ""},
 	bs_custom{std::string(100, 'a'), std::string(100, 'a')},
-	bs_custom{"\r\n\x01", "\r\n\x01"}};
+	bs_custom{"\r\n\x01", "\0\r\n\x01"s}};
 
 static int g_bs_flag = 0;
 

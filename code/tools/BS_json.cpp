@@ -4,6 +4,8 @@
 
 #include "RWops.h"
 
+#ifdef BS_JSON_BASE64
+
 // I got this from stack overflow https://stackoverflow.com/a/41094722
 static const int B64index[256] = {
 	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,	0,
@@ -113,4 +115,5 @@ std::string base64_encode(const void* src, size_t len)
 
 	return outStr;
 }
+#endif // BS_JSON_BASE64
 #endif

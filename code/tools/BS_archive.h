@@ -190,12 +190,6 @@ public:
 	virtual bool StringZ(std::string& str, size_t max_size) = 0;
 	virtual bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) = 0;
 
-	// can't use string because json cannot store binary (0-255)
-	virtual bool Data(std::string& str) = 0;
-	virtual bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) = 0;
-	virtual bool DataZ(std::string& str, size_t max_size) = 0;
-	virtual bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) = 0;
-
 	// json only
 	virtual bool Key(std::string_view str) = 0;
 	virtual bool StartObject() = 0;

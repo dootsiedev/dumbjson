@@ -10,8 +10,10 @@
 
 namespace rj = rapidjson;
 
+#ifdef BS_JSON_BASE64
 std::string b64decode(const void* data, size_t len);
 std::string base64_encode(const void* src, size_t len);
+#endif
 
 template<class Reader, size_t max_line_length = 100>
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -381,36 +383,14 @@ public:
 	}
 	bool String(const char* str, rj::SizeType length, bool)
 	{
+		#ifndef BS_JSON_BASE64
 		if(length <= max_size)
 		{
 			return call(str, length, ud);
 		}
 		serrf("string too large, max: %zu, size: %zu\n", max_size, static_cast<size_t>(length));
 		return false;
-	}
-};
-
-class internal_data_json_handler
-: public rj::BaseReaderHandler<rj::UTF8<>, internal_data_json_handler>
-{
-public:
-	BS_string_cb call;
-	void* ud;
-	size_t max_size;
-
-	explicit internal_data_json_handler(BS_string_cb cb, void* ud_, size_t max_size_)
-	: call(cb)
-	, ud(ud_)
-	, max_size(max_size_)
-	{
-	}
-	bool Default()
-	{
-		serr("expected data\n");
-		return false;
-	}
-	bool String(const char* str, rj::SizeType length, bool)
-	{
+		#else
 		std::string tmp = b64decode(str, length);
 		if(tmp.size() <= max_size)
 		{
@@ -418,8 +398,10 @@ public:
 		}
 		serrf("string too large, max: %zu size: %zu\n", max_size, tmp.size());
 		return false;
+		#endif
 	}
 };
+
 
 class internal_key_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_key_json_handler>
@@ -759,30 +741,6 @@ public:
 		return reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler);
 	}
 
-	// can't use string because json cannot store binary (0-255)
-	bool Data(std::string& str) override
-	{
-		return Data_CB(str, internal_read_string_cb, &str);
-	}
-	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
-	{
-		(void)str;
-		if(reader.HasParseError()) return false;
-		internal_data_json_handler handler{cb, ud, BS_MAX_STRING_SIZE};
-		return reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler);
-	}
-	bool DataZ(std::string& str, size_t max_size) override
-	{
-		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
-	}
-	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
-	{
-		(void)str;
-		if(reader.HasParseError()) return false;
-		internal_data_json_handler handler{cb, ud, max_size};
-		return reader.IterativeParseNext<rj::kParseCommentsFlag>(stream, handler);
-	}
-
 	// json only
 	bool Key(std::string_view str) override
 	{
@@ -1008,30 +966,12 @@ public:
 		(void)max_size;
 		ASSERT(max_size <= BS_MAX_STRING_SIZE);
 		ASSERT(str.size() <= max_size);
+		#ifndef BS_JSON_BASE64
 		good = good && CHECK(writer.String(str.data(), str.size()));
-		return good;
-	}
-	bool Data(std::string& str) override
-	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, NULL, NULL);
-	}
-	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
-	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
-	}
-	bool DataZ(std::string& str, size_t max_size) override
-	{
-		return DataZ_CB(str, max_size, NULL, NULL);
-	}
-	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
-	{
-		(void)cb;
-		(void)ud;
-		(void)max_size;
-		ASSERT(max_size <= BS_MAX_STRING_SIZE);
-		ASSERT(str.size() <= max_size);
+		#else
 		std::string tmp = base64_encode(str.data(), str.size());
 		good = good && CHECK(writer.String(tmp.data(), tmp.size()));
+		#endif
 		return good;
 	}
 	bool Key(std::string_view str) override

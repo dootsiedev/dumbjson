@@ -234,33 +234,17 @@ public:
 	}
 	bool String(std::string& str) override
 	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
+		return StringZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
 	}
 	bool String_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
+		return StringZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
 	bool StringZ(std::string& str, size_t max_size) override
 	{
-		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
+		return StringZ_CB(str, max_size, internal_read_string_cb, &str);
 	}
 	bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
-	{
-		return DataZ_CB(str, max_size, cb, ud);
-	}
-	bool Data(std::string& str) override
-	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
-	}
-	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
-	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
-	}
-	bool DataZ(std::string& str, size_t max_size) override
-	{
-		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
-	}
-	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
 		(void)str; // unused
 		ASSERT(max_size <= BS_MAX_STRING_SIZE);
@@ -484,33 +468,17 @@ public:
 	}
 	bool String(std::string& str) override
 	{
-		return DataZ(str, BS_MAX_STRING_SIZE);
+		return StringZ_CB(str, BS_MAX_STRING_SIZE, internal_read_string_cb, &str);
 	}
 	bool String_CB(std::string_view str, BS_string_cb cb, void* ud) override
 	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
+		return StringZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
 	}
 	bool StringZ(std::string& str, size_t max_size) override
 	{
-		return DataZ(str, max_size);
+		return StringZ_CB(str, max_size, internal_read_string_cb, &str);
 	}
 	bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
-	{
-		return DataZ_CB(str, max_size, cb, ud);
-	}
-	bool Data(std::string& str) override
-	{
-		return DataZ(str, BS_MAX_STRING_SIZE);
-	}
-	bool Data_CB(std::string_view str, BS_string_cb cb, void* ud) override
-	{
-		return DataZ_CB(str, BS_MAX_STRING_SIZE, cb, ud);
-	}
-	bool DataZ(std::string& str, size_t max_size) override
-	{
-		return DataZ_CB(str, max_size, internal_read_string_cb, &str);
-	}
-	bool DataZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) override
 	{
 		(void)cb;
 		(void)ud; // unused
