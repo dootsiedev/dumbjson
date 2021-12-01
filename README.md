@@ -16,7 +16,7 @@ the main goal is the size of the file and to prevent people from tinkering with 
 \
 Example:
 ```C++
-//creates: {"i":N, "d":N}
+// creates: {"i":N, "d":N}
 void serialize_data_type(BS_Serializer& ar, data_type& data)
 {
 	ar.StartObject();
@@ -27,27 +27,28 @@ void serialize_data_type(BS_Serializer& ar, data_type& data)
 	ar.EndObject();
 }
 
-//the root serializer for an array of data_type.
-//creates {"size":N, "array":[...]}
+// the root serializer for an array of data_type.
+// creates {"size":N, "array":[...]}
 struct serialize_group_data : BS_Serializable
 {
 	std::vector<data_type>& group_data;
 
 	explicit serialize_group_data(std::vector<data_type>& group_data_)
 	: group_data(group_data_)
-	{}
+	{
+	}
 
 	void Serialize(BS_Archive& ar) override
 	{
 		ar.StartObject();
 
-        //you must know the size of the array before reading it unlike normal json.
-        //this right here is the worst part of BS_Archive.
+		// you must know the size of the array before reading it unlike normal json.
+		// this right here is the worst part of BS_Archive.
 		{
 			const uint32_t min_size = 0;
 			const uint32_t max_size = 2;
 
-			//optional sanity checks for the writer.
+			// optional sanity checks for the writer.
 			if(ar.IsWriter())
 			{
 				ASSERT(std::size(group_data) <= std::numeric_limits<uint32_t>::max());
@@ -55,22 +56,22 @@ struct serialize_group_data : BS_Serializable
 				ASSERT(std::size(group_data) <= max_size);
 			}
 
-			//using uint64_t would be overkill.
+			// using uint64_t would be overkill.
 			uint32_t size = std::size(group_data);
-			
-			//BS_min_max_state will include an error if the number is out of bounds.
+
+			// BS_min_max_state will include an error if the number is out of bounds.
 			BS_min_max_state<uint32_t> size_cb_state{size, min_size, max_size};
-			
+
 			ar.Key("size");
 			if(!ar.Uint32_CB(test_array_size, decltype(size_cb_state)::call, &size_cb_state))
 			{
-				//exit early
-				//note that on the first callback or stream error, 
-				//all next operations will turn into NOPs and return false.
+				// exit early
+				// note that on the first callback or stream error,
+				// all next operations will turn into NOPs and return false.
 				return;
 			}
 
-			//the reader needs to allocate the entries to read into
+			// the reader needs to allocate the entries to read into
 			if(Archive::IsReader)
 			{
 				data.resize(size);
@@ -81,9 +82,9 @@ struct serialize_group_data : BS_Serializable
 		ar.StartArray();
 		for(data_type& entry : group_data)
 		{
-            if(!ar.Good())
+			if(!ar.Good())
 			{
-				//exit early
+				// exit early
 				return;
 			}
 			serialize_data_type(ar, entry);
@@ -93,18 +94,18 @@ struct serialize_group_data : BS_Serializable
 	}
 };
 
-//writer setup:
+// writer setup:
 {
-	//fill the input with data
-	std::vector<data_type> input = {{1,1.1}, {2,2.2}};
+	// fill the input with data
+	std::vector<data_type> input = {{1, 1.1}, {2, 2.2}};
 
-	//this stores the result.
+	// this stores the result.
 	BS_MemoryStream sb;
 
-	//serialize_group_data inherits BS_Serializable
+	// serialize_group_data inherits BS_Serializable
 	serialize_group_data root(input);
 
-	//call Serialize (replace BS_FLAG_JSON with BS_FLAG_BINARY for binary)
+	// call Serialize (replace BS_FLAG_JSON with BS_FLAG_BINARY for binary)
 	if(!BS_Write_Memory(root, sb, BS_FLAG_JSON))
 	{
 		// error!
@@ -113,20 +114,20 @@ struct serialize_group_data : BS_Serializable
 	std::string file_data(sb.GetString(), sb.GetLength());
 }
 
-//reader setup:
+// reader setup:
 {
 	std::vector<data_type> output;
 
-	//serialize_group_data inherits BS_Serializable
+	// serialize_group_data inherits BS_Serializable
 	serialize_group_data root(input);
 
-	//call Serialize (replace BS_FLAG_JSON with BS_FLAG_BINARY for binary)
+	// call Serialize (replace BS_FLAG_JSON with BS_FLAG_BINARY for binary)
 	if(!BS_Read_Memory(root, file_data.c_str(), file_data.size(), BS_FLAG_JSON))
 	{
 		// error!
 	}
-	
-	//use output
+
+	// use output
 }
 ```
 This wasn't made to be used as a library that you include into your project.\
