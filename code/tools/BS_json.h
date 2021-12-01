@@ -383,14 +383,14 @@ public:
 	}
 	bool String(const char* str, rj::SizeType length, bool)
 	{
-		#ifndef BS_JSON_BASE64
+#ifndef BS_JSON_BASE64
 		if(length <= max_size)
 		{
 			return call(str, length, ud);
 		}
 		serrf("string too large, max: %zu, size: %zu\n", max_size, static_cast<size_t>(length));
 		return false;
-		#else
+#else
 		std::string tmp = b64decode(str, length);
 		if(tmp.size() <= max_size)
 		{
@@ -398,10 +398,9 @@ public:
 		}
 		serrf("string too large, max: %zu size: %zu\n", max_size, tmp.size());
 		return false;
-		#endif
+#endif
 	}
 };
-
 
 class internal_key_json_handler
 : public rj::BaseReaderHandler<rj::UTF8<>, internal_key_json_handler>
@@ -966,12 +965,12 @@ public:
 		(void)max_size;
 		ASSERT(max_size <= BS_MAX_STRING_SIZE);
 		ASSERT(str.size() <= max_size);
-		#ifndef BS_JSON_BASE64
+#ifndef BS_JSON_BASE64
 		good = good && CHECK(writer.String(str.data(), str.size()));
-		#else
+#else
 		std::string tmp = base64_encode(str.data(), str.size());
 		good = good && CHECK(writer.String(tmp.data(), tmp.size()));
-		#endif
+#endif
 		return good;
 	}
 	bool Key(std::string_view str) override

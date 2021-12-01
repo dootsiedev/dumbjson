@@ -1751,7 +1751,7 @@ public:
 	}
 };
 
-//allow null terminaters in strings.
+// allow null terminaters in strings.
 using namespace std::string_literals;
 
 static const bs_data bs_expected_array[] = {
@@ -1883,7 +1883,6 @@ static int test_BS_2(char* file_memory, size_t& file_size)
 
 #include "tools/BS_binary.h"
 #include "tools/BS_json.h"
-
 
 static int test_BS_3(char* file_memory, size_t& file_size)
 {

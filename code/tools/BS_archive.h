@@ -18,8 +18,9 @@
 
 // TODO:
 //-Reading should give a path to the variable on an error like dumbjson.
-//-all the ReadJson handlers will print a vague "expected [TYPE]" error, replace rj::BaseReaderHandler
-//-using std::source_location (C++20) I could print the location of where the error occurred.
+//-all the ReadJson handlers will print a vague "expected [TYPE]" error, replace
+//rj::BaseReaderHandler -using std::source_location (C++20) I could print the location of where the
+//error occurred.
 
 // example
 #if 0

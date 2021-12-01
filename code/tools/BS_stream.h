@@ -80,7 +80,7 @@ struct BS_MemoryStream
 
 namespace rj = rapidjson;
 
-//I have a feeling this is more optimized.
+// I have a feeling this is more optimized.
 struct BS_StringBuffer : rj::StringBuffer
 {
 	explicit BS_StringBuffer(size_t capacity = kDefaultCapacity)

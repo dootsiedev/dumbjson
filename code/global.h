@@ -63,7 +63,7 @@ typedef double TIMER_RESULT;
 
 // use chrono or SDL's QPC
 // but QPC's shouldn't be used if timers from other threads are compared.
-// you can also try clang's __builtin_readcyclecounter 
+// you can also try clang's __builtin_readcyclecounter
 // if you are measuring really tiny calucations.
 #if 0
 
