@@ -347,10 +347,34 @@ endif()
 
 
 #
-# include add_application()
+# start of project
 #
 
-include(code/CMakeLists.txt)
+add_executable(${PROJECT_NAME}
+    code/main.cpp
+    code/global.h
+    code/global.cpp
+
+    code/tools/RWops.h
+    code/tools/RWops.cpp
+    #code/tools/dumb_json.h
+    #code/tools/dumb_json.cpp
+    #code/tools/kson_serializer.h
+
+    code/tools/BS_archive.h
+    code/tools/BS_binary.h
+    code/tools/BS_json.h
+    code/tools/BS_json.cpp
+    code/tools/BS_stream.h
+    code/tools/BS_stream.cpp
+)
+
+#I'm not using this to speed up compilation,
+#this SHOULD help clangd to deal with non self-contained headers 
+#because it's automatically #include'd into every file
+#but clangd doesn't detect it for some reason...
+#target_precompile_headers(${PROJECT_NAME} PRIVATE "code/global.h")
+
 target_link_libraries(${PROJECT_NAME} ALL_SANITIZERS)
 target_compile_options(${PROJECT_NAME} PRIVATE ${MY_COMPILER_FLAGS})
 
