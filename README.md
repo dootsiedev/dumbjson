@@ -11,10 +11,21 @@ Limitations:\
  the size of an array ahead of the array (like a pascal string).\
 Dynamic arrays require you to check the IsReader flag to properly work with dynamic arrays.\
 Note:\
-Performance is not a goal for the Binary format but it is a minor benefit,\
-the main benefit is in the size of the file,\
-So you can have descriptive names of every variable without a worry about micro optimization.\
+Performance is not the goal for the Binary format (it is faster, but not by 10x),\
+the main goal is the size of the file and to prevent people from tinkering with it.\
 \
+Example:\
+```C++
+void serialize_data_type(BS_Serializer& ar, data_type& data)
+{
+	ar.StartObject();
+	ar.Key("i");
+	ar.Int32(data.i);
+	ar.Key("d");
+	ar.Double(data.d);
+	ar.EndObject();
+}
+```
 This wasn't made to be used as a library that you include into your project. This isn't a high performance serialization library but it's an OK performance serialization library.\
 Credit to rapidjson's "Archiver" in the examples directory, which inspired this, and it's better than this library in simplicity.\
 This code depends on my very specific and probably poorly designed error handling system called "serr", which is just errno replaced with a single std::string, which makes errors look like a lazy dump of information, but I like it because it's simple.\

@@ -185,12 +185,12 @@ public:
 	virtual bool Double(double& d) = 0;
 	virtual bool Double_CB(double d, BS_double_cb cb, void* ud) = 0;
 
+	// the maxiumum size of a string is BS_MAX_STRING_SIZE (it's a uint16_t).
 	virtual bool String(std::string& str) = 0;
 	virtual bool String_CB(std::string_view str, BS_string_cb cb, void* ud) = 0;
 	virtual bool StringZ(std::string& str, size_t max_size) = 0;
 	virtual bool StringZ_CB(std::string_view str, size_t max_size, BS_string_cb cb, void* ud) = 0;
 
-	// json only
 	virtual bool Key(std::string_view str) = 0;
 	virtual bool StartObject() = 0;
 	virtual bool EndObject() = 0;
