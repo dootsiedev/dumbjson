@@ -127,7 +127,7 @@ struct serialize_group_data : BS_Serializable
 	std::vector<data_type> output;
 
 	// serialize_group_data inherits BS_Serializable
-	serialize_group_data root(input);
+	serialize_group_data root(output);
 
 	// call Serialize (replace BS_FLAG_JSON with BS_FLAG_BINARY for binary)
 	if(!BS_Read_Memory(root, file_data.c_str(), file_data.size(), BS_FLAG_JSON))
