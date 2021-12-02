@@ -25,7 +25,7 @@
 // example
 #if 0
 // creates: {"i":N, "d":N}
-void serialize_data_type(BS_Serializer& ar, data_type& data)
+void serialize_data_type(BS_Archive& ar, data_type& data)
 {
 	ar.StartObject();
 	ar.Key("i");
