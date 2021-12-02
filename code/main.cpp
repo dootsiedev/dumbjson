@@ -6,6 +6,9 @@
 
 #include "tools/RWops.h"
 
+
+#include <SDL2/SDL.h>
+
 #if 0
 
 static int test_object_1(char* file_memory, size_t& file_size)
@@ -1692,6 +1695,11 @@ public:
 		ar.StartArray();
 		for(bs_data& entry : group_data)
 		{
+			if(!ar.Good())
+			{
+				// exit early
+				return;
+			}
 			entry.Serialize(ar);
 		}
 		ar.EndArray();
@@ -1722,6 +1730,11 @@ public:
 		ar.StartArray();
 		for(bs_custom& entry : group_custom)
 		{
+			if(!ar.Good())
+			{
+				// exit early
+				return;
+			}
 			entry.Serialize(ar);
 		}
 		ar.EndArray();
@@ -1918,10 +1931,10 @@ static int test_BS_3(char* file_memory, size_t& file_size)
 		TestSerialize test(input, input_custom);
 
 		BS_StringBuffer sb;
-		switch(g_bs_flag)
-		{
+
 #ifndef DISABLE_BS_JSON
-		case BS_FLAG_JSON: {
+		if(g_bs_flag == BS_FLAG_JSON)
+		{
 			// instead of the pretty printer you can use the compact writer.
 			BS_JsonWriter<decltype(sb), rj::Writer<decltype(sb)>> ar(sb);
 			test.T_Serialize(ar);
@@ -1930,17 +1943,15 @@ static int test_BS_3(char* file_memory, size_t& file_size)
 				return -1;
 			}
 		}
-		break;
 #endif
-		case BS_FLAG_BINARY: {
+		if(g_bs_flag == BS_FLAG_BINARY)
+		{
 			BS_BinaryWriter ar(sb);
 			test.T_Serialize(ar);
 			if(!ar.Finish(__func__))
 			{
 				return -1;
 			}
-		}
-		break;
 		}
 
 		file_size = (sb.GetLength() > file_size) ? file_size : sb.GetLength();
@@ -1954,10 +1965,9 @@ static int test_BS_3(char* file_memory, size_t& file_size)
 
 		BS_MemoryStream sb(file_memory, file_memory + file_size);
 
-		switch(g_bs_flag)
-		{
 #ifndef DISABLE_BS_JSON
-		case BS_FLAG_JSON: {
+		if(g_bs_flag == BS_FLAG_JSON)
+		{
 			BS_JsonReader ar(sb);
 			test.T_Serialize(ar);
 			if(!ar.Finish(__func__))
@@ -1965,17 +1975,15 @@ static int test_BS_3(char* file_memory, size_t& file_size)
 				return -1;
 			}
 		}
-		break;
 #endif
-		case BS_FLAG_BINARY: {
+		if(g_bs_flag == BS_FLAG_BINARY)
+		{
 			BS_BinaryReader ar(sb);
 			test.T_Serialize(ar);
 			if(!ar.Finish(__func__))
 			{
 				return -1;
 			}
-		}
-		break;
 		}
 
 		if(!test.check(
@@ -2005,29 +2013,27 @@ static int test_BS_4(char* file_memory, size_t& file_size)
 
 		char buffer[1000];
 		BS_WriteStream sb(file.get(), buffer, sizeof(buffer));
-		switch(g_bs_flag)
-		{
+
 #ifndef DISABLE_BS_JSON
-		case BS_FLAG_JSON: {
+		if(g_bs_flag == BS_FLAG_JSON)
+		{
 			// instead of the pretty printer you can use the compact writer.
 			BS_JsonWriter<decltype(sb), rj::Writer<decltype(sb)>> ar(sb);
 			test.T_Serialize(ar);
-			if(!ar.Finish(file->stream_info))
+			if(!ar.Finish(__func__))
 			{
 				return -1;
 			}
 		}
-		break;
 #endif
-		case BS_FLAG_BINARY: {
+		if(g_bs_flag == BS_FLAG_BINARY)
+		{
 			BS_BinaryWriter ar(sb);
 			test.T_Serialize(ar);
-			if(!ar.Finish(file->stream_info))
+			if(!ar.Finish(__func__))
 			{
 				return -1;
 			}
-		}
-		break;
 		}
 
 		int get_file_size;
@@ -2045,28 +2051,25 @@ static int test_BS_4(char* file_memory, size_t& file_size)
 		char buffer[1000];
 		BS_ReadStream sb(file.get(), buffer, sizeof(buffer));
 
-		switch(g_bs_flag)
-		{
 #ifndef DISABLE_BS_JSON
-		case BS_FLAG_JSON: {
+		if(g_bs_flag == BS_FLAG_JSON)
+		{
 			BS_JsonReader ar(sb);
 			test.T_Serialize(ar);
-			if(!ar.Finish(file->stream_info))
+			if(!ar.Finish(__func__))
 			{
 				return -1;
 			}
 		}
-		break;
 #endif
-		case BS_FLAG_BINARY: {
+		if(g_bs_flag == BS_FLAG_BINARY)
+		{
 			BS_BinaryReader ar(sb);
 			test.T_Serialize(ar);
-			if(!ar.Finish(file->stream_info))
+			if(!ar.Finish(__func__))
 			{
 				return -1;
 			}
-		}
-		break;
 		}
 
 		if(!test.check(
@@ -2142,9 +2145,13 @@ static bool test_pass()
 	}
 	return true;
 }
-
 int main(int, char**)
 {
+	if(SDL_Init(0) != 0)
+	{
+		serrf("Error initializing SDL:  %s\n", SDL_GetError());
+		return -1;
+	}
 	slogf("hello world\n");
 
 #ifndef DISABLE_BS_JSON
@@ -2162,6 +2169,8 @@ int main(int, char**)
 	{
 		return -1;
 	}
+
+	SDL_Quit();
 
 	slog("done\n");
 	return 0;
