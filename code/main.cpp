@@ -1637,12 +1637,12 @@ struct bs_custom
 class TestSerialize : public BS_Serializable
 {
 public:
-	std::vector<bs_data>& data;
-	std::vector<bs_custom>& custom;
+	std::vector<bs_data>& group_data;
+	std::vector<bs_custom>& group_custom;
 
 	explicit TestSerialize(std::vector<bs_data>& data_, std::vector<bs_custom>& custom_)
-	: data(data_)
-	, custom(custom_)
+	: group_data(data_)
+	, group_custom(custom_)
 	{
 	}
 
@@ -1658,46 +1658,69 @@ public:
 
 		// this is a drawback of using the BS_archive,
 		// which is the requirement of manually storing the size of arrays.
-		ar.Key("size");
-		ASSERT(std::size(data) <= std::numeric_limits<uint16_t>::max());
-		uint16_t test_array_size = std::size(data);
-
-		BS_min_max_state<uint16_t> size_cb_state{test_array_size, 0, 4};
-		if(!ar.Uint16_CB(test_array_size, decltype(size_cb_state)::call, &size_cb_state))
 		{
-			// exit early
-			return;
-		}
+			const uint32_t min_size = 0;
+			const uint32_t max_size = 4;
 
-		if(ar.IsReader())
-		{
-			data.resize(test_array_size);
+			// sanity check for writer.
+			if(ar.IsWriter())
+			{
+				ASSERT(std::size(group_data) <= std::numeric_limits<uint32_t>::max());
+				ASSERT(std::size(group_data) >= min_size);
+				ASSERT(std::size(group_data) <= max_size);
+			}
+
+			ASSERT(std::size(group_data) <= std::numeric_limits<uint32_t>::max());
+			uint32_t test_array_size = std::size(group_data);
+
+			BS_min_max_state<uint32_t> size_cb_state{test_array_size, min_size, max_size};
+
+			ar.Key("size");
+			if(!ar.Uint32_CB(test_array_size, decltype(size_cb_state)::call, &size_cb_state))
+			{
+				// exit early
+				return;
+			}
+
+			if(ar.IsReader())
+			{
+				group_data.resize(test_array_size);
+			}
 		}
 
 		ar.Key("data");
 		ar.StartArray();
-		for(bs_data& entry : data)
+		for(bs_data& entry : group_data)
 		{
 			entry.Serialize(ar);
 		}
 		ar.EndArray();
 
-		ar.Key("custom_size");
-		uint16_t custom_array_size = std::size(custom);
-		if(!ar.Uint16(custom_array_size))
 		{
-			// exit early
-			return;
-		}
+			// sanity check for writer.
+			if(ar.IsWriter())
+			{
+				ASSERT(std::size(group_custom) <= std::numeric_limits<uint32_t>::max());
+			}
 
-		if(ar.IsReader())
-		{
-			custom.resize(custom_array_size);
+			uint32_t custom_array_size = std::size(group_custom);
+
+			ar.Key("custom_size");
+			if(!ar.Uint32(custom_array_size))
+			{
+				// exit early
+				return;
+			}
+
+			if(ar.IsReader())
+			{
+				group_custom.resize(custom_array_size);
+			}
 		}
 
 		ar.Key("custom");
 		ar.StartArray();
-		for(bs_custom& entry : custom)
+		for(bs_custom& entry : group_custom)
 		{
 			entry.Serialize(ar);
 		}
@@ -1713,17 +1736,17 @@ public:
 		const bs_custom* custom_end)
 	{
 		size_t data_size = data_end - data_begin;
-		if(data.size() != data_size)
+		if(group_data.size() != data_size)
 		{
 			serrf(
 				"data mismatching array size, expected: %zu, result: %zu\n",
 				data_size,
-				data.size());
+				group_data.size());
 			return false;
 		}
 		for(size_t i = 0; i < data_size; ++i)
 		{
-			if(data.at(i) != data_begin[i])
+			if(group_data.at(i) != data_begin[i])
 			{
 				serrf("data mismatching entry at: %zu\n", i);
 				return false;
@@ -1731,17 +1754,17 @@ public:
 		}
 
 		size_t custom_size = custom_end - custom_begin;
-		if(custom.size() != custom_size)
+		if(group_custom.size() != custom_size)
 		{
 			serrf(
 				"custom mismatching array size, expected: %zu, result: %zu\n",
 				custom_size,
-				data.size());
+				group_data.size());
 			return false;
 		}
 		for(size_t i = 0; i < custom_size; ++i)
 		{
-			if(custom.at(i) != custom_begin[i])
+			if(group_custom.at(i) != custom_begin[i])
 			{
 				serrf("custom mismatching entry at: %zu\n", i);
 				return false;
