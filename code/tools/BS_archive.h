@@ -64,7 +64,7 @@ struct serialize_group_data : BS_Serializable
 				ASSERT(std::size(group_data) <= max_size);
 			}
 
-			// using uint64_t would be overkill.
+			// the value is overwritten if IsReader
 			uint32_t size = std::size(group_data);
 
 			// BS_min_max_state will include an error if the number is out of bounds.

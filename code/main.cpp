@@ -1673,7 +1673,7 @@ public:
 				ASSERT(std::size(group_data) <= max_size);
 			}
 
-			ASSERT(std::size(group_data) <= std::numeric_limits<uint32_t>::max());
+			// the value is overwritten if IsReader
 			uint32_t test_array_size = std::size(group_data);
 
 			BS_min_max_state<uint32_t> size_cb_state{test_array_size, min_size, max_size};
