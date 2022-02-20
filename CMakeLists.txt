@@ -106,6 +106,12 @@ if (MSVC)
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /wd4244) # C4244: 'conversion_type': conversion from 'type1' to 'type2', possible loss of data
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /wd4068) # C4068: unknown pragma
 
+    #frame pointer ommision ruins stack traces
+    if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        #TODO: untested, maybe I need to replace "/Oy"
+        set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} /Oy-)
+    endif()
+
     #maybe /analyze?
 else()
     
@@ -167,8 +173,8 @@ else()
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wall -Wextra -Wpedantic)
     set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -Wunused -Wundef -Wmissing-declarations -Wvla)
 
-    #prevent debugging problems on reldeb.
-    if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    #frame pointer ommision ruins stack traces
+    if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
         set(MY_COMPILER_FLAGS ${MY_COMPILER_FLAGS} -fno-omit-frame-pointer)
     endif()
 endif()
